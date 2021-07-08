@@ -23,7 +23,6 @@ import scala.xml.Node
 import org.apache.daffodil.api.WarnID
 import org.apache.daffodil.exceptions.Assert
 import org.apache.daffodil.schema.annotation.props.LookupLocation
-import org.apache.daffodil.util.Logger
 import org.apache.daffodil.xml.NS
 import org.apache.daffodil.xml.NoNamespace
 import org.apache.daffodil.xml.RefQName
