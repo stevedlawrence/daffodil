@@ -23,7 +23,7 @@ import scala.xml.Node
 import org.apache.daffodil.api.WarnID
 import org.apache.daffodil.exceptions.Assert
 import org.apache.daffodil.schema.annotation.props.LookupLocation
-import org.apache.daffodil.util.LogLevel
+import org.apache.daffodil.util.Logger
 import org.apache.daffodil.xml.NS
 import org.apache.daffodil.xml.NoNamespace
 import org.apache.daffodil.xml.RefQName
@@ -146,7 +146,7 @@ abstract class DFDLFormatAnnotation(nodeArg: Node, annotatedSCArg: AnnotatedSche
           val defFmt = schemaSet.getDefineFormat(adjustedQN).getOrElse {
             annotatedSC.schemaDefinitionError("defineFormat with name '%s', was not found.", adjustedQN.toString)
           }
-          log(LogLevel.Debug, "found defineFormat named: %s", adjustedQN)
+          Logger.log.debug(s"found defineFormat named: ${adjustedQN}")
           val fmt = defFmt.formatAnnotation
           val newSeen = seen + (adjustedQN -> fmt)
           val moreRefs = fmt.getFormatRefs(newSeen)
@@ -178,7 +178,7 @@ abstract class DFDLFormatAnnotation(nodeArg: Node, annotatedSCArg: AnnotatedSche
    */
   //  private lazy val formatRefs: Seq[DFDLFormatAnnotation] = {
   //    val fmts = formatRefMap.map { case (_, fmt) => fmt }
-  //    log(LogLevel.Debug, "%s::%s formatRefs = %s", annotatedSC.diagnosticDebugName, diagnosticDebugName, fmts)
+  //    Logger.log.debug(s"${annotatedSC.diagnosticDebugName}::${diagnosticDebugName} formatRefs = ${fmts}")
   //    val seq = Seq(this) ++ fmts
   //    seq
   //  }

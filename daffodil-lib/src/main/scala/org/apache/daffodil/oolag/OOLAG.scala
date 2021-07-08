@@ -17,15 +17,15 @@
 
 package org.apache.daffodil.oolag
 
-import org.apache.daffodil.exceptions.Assert
-import org.apache.daffodil.util.Logging
-import org.apache.daffodil.util._
-import org.apache.daffodil.exceptions.UnsuppressableException
 import org.apache.daffodil.api.Diagnostic
 import org.apache.daffodil.api.WithDiagnostics
-import org.apache.daffodil.util.Misc
+import org.apache.daffodil.exceptions.Assert
 import org.apache.daffodil.exceptions.ThinException
+import org.apache.daffodil.exceptions.UnsuppressableException
+import org.apache.daffodil.util.Logger
 import org.apache.daffodil.util.Maybe._
+import org.apache.daffodil.util.Misc
+import org.apache.daffodil.util._
 
 /**
  * OOLAG = Object-oriented Lazy Attribute Grammars
@@ -35,7 +35,7 @@ import org.apache.daffodil.util.Maybe._
  * Attribute Grammars on Wikipedia.
  */
 
-object OOLAG extends Logging {
+object OOLAG {
 
   private val indent_ = new ThreadLocal[Int] {
     override def initialValue = 0
@@ -63,7 +63,7 @@ object OOLAG extends Logging {
       // has already recorded the exception in the diagnostics, and it was of the
       // kind that can be recorded and issued later as a compile-time diagnostic.
       case e: OOLAGRethrowException =>
-        log(LogLevel.OOLAGDebug, "OOLAG.keepGoing is suppressing exception already recorded: %s", e)
+        Logger.log.trace(s"OOLAG.keepGoing is suppressing exception already recorded: ${e}")
         alt
     }
   }
@@ -135,7 +135,7 @@ object OOLAG extends Logging {
    * via setRequiredEvaluationsActive().
    */
   trait OOLAGHost
-    extends Logging with WithDiagnostics
+    extends WithDiagnostics
     with NamedMixinBase {
 
     protected def oolagContextViaArgs: Option[OOLAGHost] = None
@@ -491,8 +491,7 @@ object OOLAG extends Logging {
   sealed abstract class OOLAGValueBase(
     val oolagContext: OOLAGHost,
     nameArg: String,
-    body: => Any)
-    extends Logging {
+    body: => Any) {
 
     Assert.usage(oolagContext != null)
 
@@ -531,8 +530,6 @@ object OOLAG extends Logging {
 
     override def toString = thisThing
 
-    private val catchMsg = "%s has no value due to %s."
-
     protected final def toss(th: Throwable) = {
       throw th
     }
@@ -541,7 +538,7 @@ object OOLAG extends Logging {
       Assert.invariant(!hasValue)
       th match {
         case le: scala.Error => { // note that Exception does NOT inherit from Error
-          log(LogLevel.Error, " " * indent + catchMsg, thisThing, le) // tell us which lazy attribute it was
+          Logger.log.trace(s" " * indent + s"${thisThing} has no value due to ${le}") // tell us which lazy attribute it was
           toss(le)
         }
         //
@@ -551,7 +548,7 @@ object OOLAG extends Logging {
         //
         case ue @ (_: IllegalArgumentException | _: UnsuppressableException) => {
           val ex = ue
-          log(LogLevel.OOLAGDebug, " " * indent + catchMsg, this.getClass.getName, ex) // tell us which lazy attribute it was
+          Logger.log.trace(" " * indent + s"${this.getClass.getName} has no value due to ${ex}") // tell us which lazy attribute it was
           toss(ex)
         }
         //
@@ -559,7 +556,7 @@ object OOLAG extends Logging {
         // ErrorAlreadyHandled means we are headed back to some top-level that
         // can tolerate errors and go on with compilation.
         case eah: ErrorAlreadyHandled => {
-          log(LogLevel.OOLAGDebug, " " * indent + catchMsg, thisThing, eah)
+          Logger.log.trace(s" " * indent + s"${thisThing} has no value due to ${eah}") // tell us which lazy attribute it was
           toss(eah)
         }
         //
@@ -567,7 +564,7 @@ object OOLAG extends Logging {
         // and as values, they can't behave differently, so the same error will
         // just get reported again.
         case at: AlreadyTried => {
-          log(LogLevel.OOLAGDebug, " " * indent + "Caught %s", at)
+          Logger.log.trace(" " * indent + s"Caught ${at}")
           toss(at)
         }
         case AssumptionFailed => {
@@ -581,7 +578,7 @@ object OOLAG extends Logging {
           Assert.invariant(hasValue == false)
           Assert.invariant(alreadyTriedThis == true)
 
-          log(LogLevel.OOLAGDebug, " " * indent + catchMsg, thisThing, e)
+          Logger.log.trace(" " * indent + s"${thisThing} has no value due to ${e}")
           error(e)
           //
           // Catch this if you can carry on with more error gathering
@@ -612,26 +609,26 @@ object OOLAG extends Logging {
         // itself causing circular evaluation. The abort above
         // System.err.println("OOLAGValues (aka 'LVs') on stack are: " + currentOVList.mkString(", "))
         val c = CircularDefinition(this, oolagContext.currentOVList)
-        log(LogLevel.OOLAGDebug, " " * indent + "LV: " + thisThing + " CIRCULAR")
+        Logger.log.trace(" " * indent + s"LV: ${thisThing} CIRCULAR")
         toss(c)
       }
       if (alreadyTriedThis) {
-        log(LogLevel.OOLAGDebug, " " * indent + "LV: %s was tried and failed", thisThing)
+        Logger.log.trace(" " * indent + s"LV: ${thisThing} was tried and failed")
         val e = AlreadyTried(this)
         toss(e)
       }
       alreadyTriedThis = true
-      log(LogLevel.OOLAGDebug, " " * indent + "Evaluating %s", thisThing)
+      Logger.log.trace(" " * indent + s"Evaluating ${thisThing}")
     }
 
     protected final def oolagAfterValue(res: AnyRef): Unit = {
-      log(LogLevel.OOLAGDebug, " " * indent + "Evaluated %s", thisThing)
+      Logger.log.trace(" " * indent + s"Evaluated ${thisThing}")
       value_ = Maybe(res)
     }
 
     protected final def oolagFinalize = {
       setIndent(indent - 2)
-      log(LogLevel.OOLAGDebug, " " * indent + "pop:  " + thisThing)
+      Logger.log.trace(" " * indent + s"pop: ${thisThing}")
       if (oolagContext.currentOVList.nonEmpty)
         oolagContext.currentOVList = oolagContext.currentOVList.tail
     }
@@ -656,7 +653,7 @@ object OOLAG extends Logging {
           }
         }
       if (res == true) {
-        log(LogLevel.OOLAGDebug, " " * indent + "LV %s has an error", this)
+        Logger.log.trace(" " * indent + s"LV ${this} has an error")
       }
       res
     }

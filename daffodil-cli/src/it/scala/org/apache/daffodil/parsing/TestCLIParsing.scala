@@ -425,10 +425,10 @@ class TestCLIparsing {
       shell.expect(contains("[info]"))
 
       shell.sendLine(String.format("echo 0,1| %s -vv parse -s %s -r matrix -", Util.binPath, testSchemaFile))
-      shell.expect(contains("[compile]"))
+      shell.expect(contains("[debug]"))
 
       shell.sendLine(String.format("echo 0,1| %s -vvv parse -s %s -r matrix -", Util.binPath, testSchemaFile))
-      shell.expect(contains("[debug]"))
+      shell.expect(contains("[trace]"))
 
       shell.send("exit\n")
       shell.expect(eof)

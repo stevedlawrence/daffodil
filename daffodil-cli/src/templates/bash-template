@@ -52,6 +52,7 @@ MAINCLASS=org.apache.daffodil.Main
 SCRIPT=$(realpath "$0")			# Full path to script, needed for symlinks
 BINDIR=$(dirname "${SCRIPT}")		# Directory script is run in
 LIBDIR="$BINDIR/../lib"
+CONFDIR="$BINDIR/../conf"
 CLASSPATH=$LIBDIR/'*'
 
 JOPTS="-Xms1024m -Xmx1024m -XX:ReservedCodeCacheSize=128m"
@@ -73,4 +74,4 @@ then
 	CLASSPATH=$(cygpath -apw "$CLASSPATH")
 fi
 
-exec java $JOPTS -cp "$CLASSPATH" "$MAINCLASS" "$@"
+exec java -Dlog4j.configurationFile="$CONFDIR/log4j2.xml" $JOPTS -cp "$CLASSPATH" "$MAINCLASS" "$@"

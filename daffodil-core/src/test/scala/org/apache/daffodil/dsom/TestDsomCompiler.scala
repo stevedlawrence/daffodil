@@ -24,7 +24,7 @@ import org.apache.daffodil.Implicits._; object INoWarnDSOM1 { ImplicitsSuppressU
 import org.apache.daffodil.schema.annotation.props.gen.{ YesNo, TextNumberRep, SeparatorPosition, Representation, OccursCountKind, NilKind, LengthKind, ChoiceLengthKind, ByteOrder, BinaryNumberRep, AlignmentUnits }
 
 import org.apache.daffodil.schema.annotation.props.AlignmentType
-import org.apache.daffodil.util.{ Misc, Logging }
+import org.apache.daffodil.util.Misc
 import org.apache.daffodil.xml.XMLUtils
 import org.junit.Assert._
 import org.apache.daffodil.api.Diagnostic
@@ -32,7 +32,7 @@ import org.apache.daffodil.util._
 import org.junit.Test
 import org.apache.daffodil.schema.annotation.props.Found
 
-class TestDsomCompiler extends Logging {
+class TestDsomCompiler {
 
   val xsd = XMLUtils.XSD_NAMESPACE
   val dfdl = XMLUtils.dfdlAppinfoSource // XMLUtils.DFDL_NAMESPACE
@@ -94,7 +94,6 @@ class TestDsomCompiler extends Logging {
   // and not defending itself from thrown exceptions the way the real APIs do (or
   // are supposed to anyway.
   @Test def testTypeReferentialError(): Unit = {
-    // LoggingDefaults.setLoggingLevel(LogLevel.OOLAGDebug)
     val sch: Node = SchemaUtils.dfdlTestSchema(
       <xs:include schemaLocation="org/apache/daffodil/xsd/DFDLGeneralFormat.dfdl.xsd"/>,
       <dfdl:format ref="tns:GeneralFormat"/>,
@@ -678,7 +677,6 @@ class TestDsomCompiler extends Logging {
   }
 
   @Test def testTerminator(): Unit = {
-    // LoggingDefaults.setLoggingLevel(LogLevel.Debug)
     val testSchema = SchemaUtils.dfdlTestSchema(
       <xs:include schemaLocation="org/apache/daffodil/xsd/DFDLGeneralFormat.dfdl.xsd"/>,
       <dfdl:format ref="tns:GeneralFormat"/>,

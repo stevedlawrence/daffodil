@@ -187,10 +187,10 @@ class TestCLISaveParser {
       shell.expect(contains("[info]"))
 
       shell.sendLine(String.format("%s -vv save-parser -s %s -r matrix %s", Util.binPath, testSchemaFile, savedParserFile.getName()))
-      shell.expect(contains("[compile]"))
+      shell.expect(contains("[debug]"))
 
       shell.sendLine(String.format("%s -vvv save-parser -s %s -r matrix %s", Util.binPath, testSchemaFile, savedParserFile.getName()))
-      shell.expect(contains("[debug]"))
+      shell.expect(contains("[trace]"))
 
       shell.send("exit\n")
       shell.expect(eof())
@@ -302,23 +302,23 @@ class TestCLISaveParser {
 
     var cmd2 = "echo -ne 'test'| " + Util.binPath + " parse --parser savedParser.xml \n"
     shell.send(cmd2)
-    shell.expect(contains("[warning] Validation Error: validation_check: cvc-pattern-valid"))
-    shell.expect(contains("[warning] Validation Error: validation_check failed"))
+    shell.expect(contains("[warn] Validation Error: validation_check: cvc-pattern-valid"))
+    shell.expect(contains("[warn] Validation Error: validation_check failed"))
 
     cmd = Util.binPath + " save-parser --validate -s daffodil-cli/src/it/resources/org/apache/daffodil/CLI/cli_schema.dfdl.xsd -r validation_check savedParser.xml\n"
     shell.send(cmd)
 
     cmd2 = "echo -ne 'test'| " + Util.binPath + " parse --parser savedParser.xml \n"
     shell.send(cmd2)
-    shell.expect(contains("[warning] Validation Error: validation_check: cvc-pattern-valid"))
-    shell.expect(contains("[warning] Validation Error: validation_check failed"))
+    shell.expect(contains("[warn] Validation Error: validation_check: cvc-pattern-valid"))
+    shell.expect(contains("[warn] Validation Error: validation_check failed"))
 
     cmd = Util.binPath + " save-parser --validate limited -s daffodil-cli/src/it/resources/org/apache/daffodil/CLI/cli_schema.dfdl.xsd -r validation_check savedParser.xml\n"
     shell.send(cmd)
 
     cmd2 = "echo -ne 'test'| " + Util.binPath + " parse --parser savedParser.xml \n"
     shell.send(cmd2)
-    shell.expect(contains("[warning] Validation Error: validation_check failed"))
+    shell.expect(contains("[warn] Validation Error: validation_check failed"))
 
     cmd = Util.binPath + " save-parser --validate off -s daffodil-cli/src/it/resources/org/apache/daffodil/CLI/cli_schema.dfdl.xsd -r validation_check savedParser.xml\n"
     shell.send(cmd)

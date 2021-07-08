@@ -29,7 +29,7 @@ import org.apache.daffodil.processors.SchemaSetRuntimeData
 import org.apache.daffodil.processors.VariableMap
 import org.apache.daffodil.processors.parsers.NotParsableParser
 import org.apache.daffodil.processors.unparsers.NotUnparsableUnparser
-import org.apache.daffodil.util.LogLevel
+import org.apache.daffodil.util.Logger
 
 import java.io.ObjectOutputStream
 
@@ -91,8 +91,7 @@ trait SchemaSetRuntime1Mixin { self : SchemaSet =>
       variableMap,
       typeCalcMap)
     if (root.numComponents > root.numUniqueComponents)
-      log(LogLevel.Info, "Compiler: component counts: unique %s, actual %s.",
-        root.numUniqueComponents, root.numComponents)
+      Logger.log.info(s"Compiler: component counts: unique ${root.numUniqueComponents}, actual ${root.numComponents}.")
     val dataProc = new DataProcessor(ssrd, tunable, self.compilerExternalVarSettings)
     //
     // now we fake serialize to a dev/null-type output stream which forces
@@ -118,15 +117,10 @@ trait SchemaSetRuntime1Mixin { self : SchemaSet =>
     val oos = new ObjectOutputStream(org.apache.commons.io.output.NullOutputStream.NULL_OUTPUT_STREAM)
     oos.writeObject(dataProc)
 
-    if (dataProc.isError) {
-      // NO longer printing anything here. Callers must do this.
-      //        val diags = dataProc.getDiagnostics
-      //        log(LogLevel.Error,"Compilation (DataProcessor) reports %s compile errors/warnings.", diags.length)
-      //        diags.foreach { diag => log(LogLevel.Error, diag.toString()) }
-    } else {
-      log(LogLevel.Compile, "Parser = %s.", ssrd.parser.toString)
-      log(LogLevel.Compile, "Unparser = %s.", ssrd.unparser.toString)
-      log(LogLevel.Compile, "Compilation (DataProcesor) completed with no errors.")
+    if (!dataProc.isError) {
+      Logger.log.debug(s"Parser = ${ssrd.parser.toString}.")
+      Logger.log.debug(s"Unparser = ${ssrd.unparser.toString}.")
+      Logger.log.debug(s"Compilation (DataProcesor) completed with no errors.")
     }
     dataProc
   }

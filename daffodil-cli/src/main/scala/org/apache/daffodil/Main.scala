@@ -28,20 +28,29 @@ import java.nio.channels.Channels
 import java.nio.file.Paths
 import java.util.Scanner
 import java.util.concurrent.Executors
-import com.typesafe.config.ConfigFactory
+
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.transform.TransformerFactory
+import javax.xml.transform.dom.DOMSource
+import javax.xml.transform.stream.StreamResult
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.util.matching.Regex
 import scala.xml.Node
 import scala.xml.SAXParseException
-import javax.xml.parsers.DocumentBuilderFactory
-import javax.xml.transform.TransformerFactory
-import javax.xml.transform.dom.DOMSource
-import javax.xml.transform.stream.StreamResult
+import scala.xml.SAXParser
+
+import com.typesafe.config.ConfigFactory
+
 import org.apache.commons.io.IOUtils
 import org.apache.commons.io.output.NullOutputStream
+
+import org.apache.logging.log4j.core.config.Configurator
+import org.apache.logging.log4j.Level
+
 import org.apache.daffodil.api.DFDL
 import org.apache.daffodil.api.DFDL.DaffodilUnparseErrorSAXException
 import org.apache.daffodil.api.DFDL.ParseResult
@@ -88,10 +97,7 @@ import org.apache.daffodil.tdml.Runner
 import org.apache.daffodil.tdml.TDMLException
 import org.apache.daffodil.tdml.TDMLTestNotCompatibleException
 import org.apache.daffodil.udf.UserDefinedFunctionFatalErrorException
-import org.apache.daffodil.util.LogLevel
-import org.apache.daffodil.util.LogWriter
-import org.apache.daffodil.util.Logging
-import org.apache.daffodil.util.LoggingDefaults
+import org.apache.daffodil.util.Logger
 import org.apache.daffodil.util.Misc
 import org.apache.daffodil.util.Timer
 import org.apache.daffodil.validation.Validators
@@ -106,17 +112,14 @@ import org.rogach.scallop.ScallopOption
 import org.rogach.scallop.ValueConverter
 import org.xml.sax.XMLReader
 
-import scala.util.matching.Regex
-import scala.xml.SAXParser
-
-class CommandLineSAXErrorHandler() extends org.xml.sax.ErrorHandler with Logging {
+class CommandLineSAXErrorHandler() extends org.xml.sax.ErrorHandler {
 
   def warning(exception: SAXParseException) = {
-    log(LogLevel.Warning, exception.getMessage())
+    Logger.log.warn(exception.getMessage())
   }
 
   def error(exception: SAXParseException) = {
-    log(LogLevel.Error, exception.getMessage())
+    Logger.log.error(exception.getMessage())
     System.exit(1)
   }
 
@@ -125,35 +128,6 @@ class CommandLineSAXErrorHandler() extends org.xml.sax.ErrorHandler with Logging
   }
 }
 
-trait CLILogPrefix extends LogWriter {
-  override def prefix(lvl: LogLevel.Type, logID: String): String = {
-    "[" + lvl.toString.toLowerCase + "] "
-  }
-
-  override def suffix(logID: String): String = {
-    ""
-  }
-}
-
-object CLILogWriter extends CLILogPrefix {
-
-  def write(msg: String): Unit = {
-    Console.err.println(msg)
-    Console.flush
-  }
-}
-
-object TDMLLogWriter extends CLILogPrefix {
-  var logs: scala.collection.mutable.Queue[String] = scala.collection.mutable.Queue.empty
-
-  def write(msg: String): Unit = {
-    logs += msg
-  }
-
-  def reset(): Unit = {
-    logs = scala.collection.mutable.Queue.empty
-  }
-}
 
 object InfosetType extends Enumeration {
   type Type = Value
@@ -167,8 +141,7 @@ object InfosetType extends Enumeration {
   val NULL = Value("null")
 }
 
-class CLIConf(arguments: Array[String]) extends scallop.ScallopConf(arguments)
-  with Logging {
+class CLIConf(arguments: Array[String]) extends scallop.ScallopConf(arguments) {
 
   /**
    * This is used when the flag is optional and so is its
@@ -300,7 +273,7 @@ class CLIConf(arguments: Array[String]) extends scallop.ScallopConf(arguments)
         message
       }
 
-    log(LogLevel.Error, "%s", msg)
+    Logger.log.error(msg)
     sys.exit(1)
   }
 
@@ -551,7 +524,7 @@ object ValidatorPatterns {
   val DefaultArgPattern: Regex = "(.+?)=(.+)".r.anchored
 }
 
-object Main extends Logging {
+object Main {
 
   val traceCommands = Seq(
     "display info parser",
@@ -601,8 +574,11 @@ object Main extends Logging {
 
   def displayDiagnostics(pr: WithDiagnostics): Unit = {
     pr.getDiagnostics.foreach { d =>
-      val lvl = if (d.isError) LogLevel.Error else LogLevel.Warning
-      log(lvl, d.getMessage())
+      if (d.isError) {
+        Logger.log.error(d.getMessage())
+      } else {
+        Logger.log.warn(d.getMessage())
+      }
     }
   }
 
@@ -671,7 +647,7 @@ object Main extends Logging {
           new TraceDebuggerRunner
         } else {
           if (System.console == null) {
-            log(LogLevel.Warning, "Using --debug on a non-interactive console may result in display issues")
+            Logger.log.warn(s"Using --debug on a non-interactive console may result in display issues")
           }
           conf.debug() match {
             case Some(f) => new CLIDebuggerRunner(new File(f))
@@ -880,19 +856,20 @@ object Main extends Logging {
     }
   }
 
-  def run(arguments: Array[String]): Int = {
-    LoggingDefaults.setLogWriter(CLILogWriter)
+  def setLogLevel(verbose: Int): Unit = {
+    val verboseLevel = verbose match {
+      case 0 => Level.WARN
+      case 1 => Level.INFO
+      case 2 => Level.DEBUG
+      case _ => Level.TRACE
+    }
+    Configurator.setLevel("org.apache.daffodil", verboseLevel)
+  }
 
+  def run(arguments: Array[String]): Int = {
     val conf = new CLIConf(arguments)
 
-    val verboseLevel = conf.verbose() match {
-      case 0 => LogLevel.Warning
-      case 1 => LogLevel.Info
-      case 2 => LogLevel.Compile
-      case 3 => LogLevel.Debug
-      case _ => LogLevel.OOLAGDebug
-    }
-    LoggingDefaults.setLoggingLevel(verboseLevel)
+    setLogLevel(conf.verbose())
 
     val ret = conf.subcommand match {
 
@@ -1005,7 +982,7 @@ object Main extends Logging {
                         } else {
                           "at least " + (inStream.inputSource.bytesAvailable * 8)
                         }
-                      log(LogLevel.Warning, "Left over data after consuming 0 bits while streaming. Stopped after consuming %s bit(s) with %s bit(s) remaining.", loc.bitPos0b, remainingBits)
+                      Logger.log.warn(s"Left over data after consuming 0 bits while streaming. Stopped after consuming ${loc.bitPos0b} bit(s) with ${remainingBits} bit(s) remaining.")
                       keepParsing = false
                       error = true
                     } else {
@@ -1049,7 +1026,7 @@ object Main extends Logging {
                         "at least " + (bytesAvailable * 8)
                       }
                     val leftOverDataWarning = s"Left over data. Consumed ${loc.bitPos0b} bit(s) with ${remainingBits} bit(s) remaining." + firstByteString + dataHex + dataText
-                    log(LogLevel.Warning, leftOverDataWarning)
+                    Logger.log.warn(leftOverDataWarning)
                     keepParsing = false
                     error = true
                   }
@@ -1183,13 +1160,14 @@ object Main extends Logging {
             val rates = results.map { results =>
               val (runNum: Int, nsTime: Long, error: Boolean) = results
               val rate = 1 / (nsTime / NSConvert)
-              log(LogLevel.Info, "run: %d, seconds: %f, rate: %f, status: %s", runNum, nsTime / NSConvert, rate, if (error) "fail" else "pass")
+              val status = if (error) "fail" else "pass"
+              Logger.log.info(s"run: ${runNum}, seconds: ${nsTime / NSConvert}, rate: ${rate}, status: ${status}")
               rate
             }
 
             val numFailures = results.map { _._3 }.filter { e => e }.length
             if (numFailures > 0) {
-              log(LogLevel.Error, "%d failures found\n", numFailures)
+              Logger.log.error(s"${numFailures} failures found\n")
             }
 
             val sec = totalTime / NSConvert
@@ -1403,7 +1381,6 @@ object Main extends Logging {
             }
           }
         } else {
-          LoggingDefaults.setLogWriter(TDMLLogWriter)
           var pass = 0
           var fail = 0
           var notfound = 0
@@ -1426,21 +1403,13 @@ object Main extends Logging {
                     if (testOpts.info() > 0) {
                       println("  Failure Information:")
                       println(indent(e.getMessage(), 4))
-                      if (testOpts.info() > 1) {
-                        println("  Logs:")
-                        if (TDMLLogWriter.logs.size > 0) {
-                          TDMLLogWriter.logs.foreach { l => println(indent(l, 4)) }
-                        } else {
-                          println("    None")
-                        }
-
-                        println("  Backtrace:")
-                        e.getStackTrace.foreach { st => println(indent(st.toString, 4)) }
-                      }
+                    }
+                    if (testOpts.info() > 1) {
+                      println("  Backtrace:")
+                      e.getStackTrace.foreach { st => println(indent(st.toString, 4)) }
                     }
                   }
                 }
-                TDMLLogWriter.reset
               }
 
               case (name, None) => {
@@ -1585,33 +1554,33 @@ object Main extends Logging {
     } catch {
       case s: scala.util.control.ControlThrowable => throw s
       case e: java.io.FileNotFoundException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         1
       }
       case e: InvalidParserException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         1
       }
       case e: ExternalVariableException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         1
       }
       case e: BindingException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         1
       }
       case e: NotYetImplementedException => {
         nyiFound(e)
       }
       case e: TDMLException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         1
       }
       case e: OutOfMemoryError => {
         oomError(e)
       }
       case e: UserDefinedFunctionFatalErrorException => {
-        log(LogLevel.Error, "%s", e.getMessage())
+        Logger.log.error(e.getMessage())
         e.printStackTrace()
         1
       }

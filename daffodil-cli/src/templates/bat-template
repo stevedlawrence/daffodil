@@ -39,6 +39,7 @@ REM defaults for Daffodil will be defined.
 set MAINCLASS=org.apache.daffodil.Main
 set BINDIR=%~dp0
 set LIBDIR=%BINDIR%..\lib
+set CONFDIR=%BINDIR%..\conf
 set CLASSPATH=%LIBDIR%\*
 
 set JOPTS=-Xms1024m -Xmx1024m -XX:ReservedCodeCacheSize=128m
@@ -49,4 +50,4 @@ if defined DAFFODIL_JAVA_OPTS (
 	set JOPTS=%JAVA_OPTS%
 )
 
-java %JOPTS% -cp "%CLASSPATH%;%DAFFODIL_CLASSPATH%" %MAINCLASS% %*
+java -Dlog4j.configurationFile="%CONFDIR%\log4j2.xml" %JOPTS% -cp "%CLASSPATH%;%DAFFODIL_CLASSPATH%" %MAINCLASS% %*

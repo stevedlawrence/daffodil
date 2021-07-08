@@ -193,7 +193,7 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function Provider ignored:" +
+          contains("[warn] User Defined Function Provider ignored:" +
             " org.badudfs.functionclasses1.StringFunctions.StringFunctionsProvider." +
             " No User Defined Functions found."),
           contains("[info] No User Defined Functions loaded."),
@@ -228,7 +228,7 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function Provider ignored:" +
+          contains("[warn] User Defined Function Provider ignored:" +
             " org.badudfs.functionclasses2.StringFunctions.StringFunctionsProvider." +
             " No User Defined Functions found."),
           contains("[info] No User Defined Functions loaded."),
@@ -264,10 +264,10 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.nonUDF.StringFunctions.FuncA." +
             " Doesn't implement org.apache.daffodil.udf.UserDefinedFunction"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.nonUDF.StringFunctions.Replace." +
             " Doesn't implement org.apache.daffodil.udf.UserDefinedFunction"),
           contains("[info] No User Defined Functions loaded."),
@@ -303,17 +303,17 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.annotations.StringFunctions.FuncB." +
             " Missing org.apache.daffodil.udf.UserDefinedFunctionIdentification annotation"),
           anyOf(
-            contains("[warning] User Defined Function ignored:" +
+            contains("[warn] User Defined Function ignored:" +
               " org.badudfs.annotations.StringFunctions.Compare." +
               " Annotation namespace field is empty or invalid."),
-            contains("[warning] User Defined Function ignored:" +
+            contains("[warn] User Defined Function ignored:" +
               " org.badudfs.annotations.StringFunctions.Compare." +
               " Annotation name field is empty or invalid.")),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.annotations.StringFunctions.Replace." +
             " Annotation name field is empty or invalid."),
           contains("[info] No User Defined Functions loaded."),
@@ -352,22 +352,22 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.FuncA." +
             " Overloaded evaluate method: urn:example:com:ext:badudfs:stringfunctions:funcA"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.Replace." +
             " Missing evaluate method: urn:example:com:ext:badudfs:stringfunctions:replace"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.FuncB." +
             " Unsupported return type: void"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.FuncC." +
             " Unsupported parameter type(s): String[],int[]"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.FuncD." +
             " Unsupported parameter type(s): String[]"),
-          contains("[warning] User Defined Function ignored:" +
+          contains("[warn] User Defined Function ignored:" +
             " org.badudfs.evaluate.StringFunctions.FuncE." +
             " Unsupported return type: String[]"),
           contains("[info] No User Defined Functions loaded."),
@@ -503,7 +503,7 @@ class TestCLIUdfs {
       shell.expectIn(
         1,
         allOf(
-          contains("[warning] User Defined Function Provider ignored:"),
+          contains("[warn] User Defined Function Provider ignored:"),
           contains("org.sbadudfs.udfpexceptions.StringFunctions.StringFunctionsProvider"),
           contains("Error loading User Defined Functions:"),
           contains("org.sbadudfs.udfpexceptions.StringFunctions.StringFunctionsProvider$CustomException"),
