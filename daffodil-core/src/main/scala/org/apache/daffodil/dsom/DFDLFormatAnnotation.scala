@@ -146,7 +146,6 @@ abstract class DFDLFormatAnnotation(nodeArg: Node, annotatedSCArg: AnnotatedSche
           val defFmt = schemaSet.getDefineFormat(adjustedQN).getOrElse {
             annotatedSC.schemaDefinitionError("defineFormat with name '%s', was not found.", adjustedQN.toString)
           }
-          Logger.log.debug(s"found defineFormat named: ${adjustedQN}")
           val fmt = defFmt.formatAnnotation
           val newSeen = seen + (adjustedQN -> fmt)
           val moreRefs = fmt.getFormatRefs(newSeen)
@@ -171,17 +170,6 @@ abstract class DFDLFormatAnnotation(nodeArg: Node, annotatedSCArg: AnnotatedSche
     val res = new ChainPropProvider(withMe, this.diagnosticDebugName)
     res
   }
-
-  /**
-   * Don't need the map anymore, and we put ourselves highest
-   * priority meaning at the front of the list.
-   */
-  //  private lazy val formatRefs: Seq[DFDLFormatAnnotation] = {
-  //    val fmts = formatRefMap.map { case (_, fmt) => fmt }
-  //    Logger.log.debug(s"${annotatedSC.diagnosticDebugName}::${diagnosticDebugName} formatRefs = ${fmts}")
-  //    val seq = Seq(this) ++ fmts
-  //    seq
-  //  }
 
   private lazy val shortFormProperties: Set[PropItem] = LV[Set[PropItem]]('shortFormProperties) {
     // shortForm properties should be prefixed by dfdl
