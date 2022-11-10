@@ -642,6 +642,14 @@ class TestCLIparsing {
     } (ExitCode.Success)
   }
 
+  @Test def test_XXX_CLI_Parsing_SimpleParse_null(): Unit = {
+    val schema = path("daffodil-test/src/test/resources/org/apache/daffodil/section00/general/generalSchema.dfdl.xsd")
+
+    runCLI(args"parse -I null -s $schema -r e1") { cli =>
+      cli.send("Hello", inputDone = true)
+    } (ExitCode.Success)
+  }
+
   @Test def test_XXX_CLI_Parsing_SimpleParse_sax(): Unit = {
     val schema = path("daffodil-test/src/test/resources/org/apache/daffodil/section00/general/generalSchema.dfdl.xsd")
 
