@@ -19,24 +19,24 @@
 
 To improve reproducibility and to minimize the effects and variability of a
 users environment, the Daffodil release container should be used to create
-release candidates.
+release candidates. This is triggered by dispatching a GitHub action.
 
-To build the Daffodil release candidate container image:
+To locally test the release candidate container you can run the following
+commands to build and run the container:
 
-    podman build -t daffodil-release-candidate /path/to/daffodil.git/containers/release-candidate/
-
-To use the container image to build a release run the following:
-
+    podman build -t daffodil-release-candidate containers/release-candidate/
+    
     podman run -it --privileged --group-add keep-groups --rm \
-      -v ~/.gitconfig:/root/.gitconfig \
-      -v ~/.gnupg/:/root/.gnupg/ \
-      -v ~/.ssh/:/root/.ssh/ \
+      --volume ./:/root/build/ \
+      --workdir /root/build/ \
       --hostname daffodil.build \
-      daffodil-release-candidate
+      daffodil-release-candidate \
+        --project=daffodil \
+        --release-label=rc1 \
+        --signing-key="$(gpg --armor --export-secret-key example@example.com)"
 
-When run, the container will periodically ask for user input (e.g. usernames,
-passwords) to sign and publish release files. Upon completion, you will be
-asked to verify the release files and, if everything looks good, run a few
-commands to push the release candidate out. Note that because the container
-will use tools like git, gpg, and ssh, it is necessary to bind mount your local
-configuration files into the container with the -v option.
+This should be run from the root of the Daffodil repository. The email address
+should be change to reflect the correct signing key.
+
+Note that this will perform a dry run and will not actually publish any files.
+Publishing should only happen when the GitHub action is run.

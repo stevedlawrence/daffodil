@@ -1,0 +1,32 @@
+name: Daffodl Release Candidate
+description: Create a release candidate of Daffodil
+inputs:
+  nexus_username:
+    description: Username for apache Nexus repository
+    required: true
+  nexus_password:
+    description: Password for apache Nexus repository
+    required: true
+  signing_key:
+    description: Secret GPG key used to sign release candidate artifacts
+    required: true
+  release_label:
+    description: Release candidate label (e.g. rc1)
+    required: true
+  project:
+    description: Project to build (daffodil or daffodil-vscode)
+    required: true
+  publish:
+    description: Publish built artifacts. Only publishes if provided and argument value is empty or 'true'.
+    required: false
+    default: false
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - --project=${{ inputs.project }}
+    - --nexus-username=${{ inputs.nexus_username }}
+    - --nexus-password=${{ inputs.nexus_password }}
+    - --signing-key=${{ inputs.signing_key }}
+    - --release-label=${{ inputs.release_label }}
+    - --publish=${{ inputs.publish }}

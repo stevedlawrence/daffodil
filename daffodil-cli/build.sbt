@@ -69,7 +69,10 @@ carried by data processing frameworks so as to bypass any XML/JSON overheads.
 //
 // In this case, we want to disable zstd compression which isn't supported by
 // older versions of RPM. So we add the following special rpm %define's to use
-// gzip compression instead, which is supported by all versions of RPM.
+// gzip compression instead, which is supported by all versions of RPM. We also
+// want to add defines to ensure the build host and timestamps that are
+// insertted into the RPM are reproducable if the SOURCE_DATE_EPOCH environment
+// variable is defined.
 Rpm / packageDescription := (Rpm / packageDescription).value + """
 %define _source_payload w9.gzdio
 %define _binary_payload w9.gzdio

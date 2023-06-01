@@ -17,8 +17,6 @@
 
 FROM registry.fedoraproject.org/fedora:38
 
-WORKDIR /root
-
 # Delete cruft fedora leaves in the homedir
 RUN rm -rf /root/*
 
