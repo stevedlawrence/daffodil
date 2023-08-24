@@ -104,15 +104,6 @@
       </xs:restriction>
     </xs:simpleType>
 
-
-    <xs:element name="inputTypeCalc_unionOfKeysetValueCalcs_01">
-      <xs:complexType>
-        <xs:sequence>
-          <xs:element name="byte" type="tns:_1through100_union_to_string" maxOccurs="unbounded" dfdl:occursCountKind="parsed"/>
-        </xs:sequence>
-      </xs:complexType>
-    </xs:element>
-
   </tdml:defineSchema>
 
   <tdml:parserTestCase name="InputTypeCalc_keysetValue_00"
@@ -232,46 +223,6 @@
           <byte>2-100</byte>
           <byte>101 103-110 115 120-125</byte>
         </keysetValue_02>
-      </tdml:dfdlInfoset>
-    </tdml:infoset>
-  </tdml:unparserTestCase>
-
-  <tdml:parserTestCase name="InputTypeCalc_unionOfKeysetValueCalcs_01"
-    root="inputTypeCalc_unionOfKeysetValueCalcs_01" model="inputTypeCalc-Embedded.dfdl.xsd" description="Extensions - repType with union of keysetValue types">
-
-    <tdml:document>
-    <tdml:documentPart type="byte">
-    01 02 03 64
-    </tdml:documentPart>
-    </tdml:document>
-    <tdml:infoset>
-      <tdml:dfdlInfoset xmlns:xs="http://www.w3.org/2001/XMLSchema"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-        <inputTypeCalc_unionOfKeysetValueCalcs_01>
-          <byte>one</byte>
-          <byte>2-100</byte>
-          <byte>2-100</byte>
-          <byte>2-100</byte>
-        </inputTypeCalc_unionOfKeysetValueCalcs_01>
-      </tdml:dfdlInfoset>
-    </tdml:infoset>
-  </tdml:parserTestCase>
-
-  <tdml:unparserTestCase name="InputTypeCalc_unparse_unionOfKeysetValueCalcs_01"
-    root="inputTypeCalc_unionOfKeysetValueCalcs_01" model="inputTypeCalc-Embedded.dfdl.xsd" description="Extensions - repType with union of keysetValue types">
-
-    <tdml:document>
-    <tdml:documentPart type="byte">
-    01 02
-    </tdml:documentPart>
-    </tdml:document>
-    <tdml:infoset>
-      <tdml:dfdlInfoset xmlns:xs="http://www.w3.org/2001/XMLSchema"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-        <inputTypeCalc_unionOfKeysetValueCalcs_01>
-          <byte>one</byte>
-          <byte>2-100</byte>
-        </inputTypeCalc_unionOfKeysetValueCalcs_01>
       </tdml:dfdlInfoset>
     </tdml:infoset>
   </tdml:unparserTestCase>
