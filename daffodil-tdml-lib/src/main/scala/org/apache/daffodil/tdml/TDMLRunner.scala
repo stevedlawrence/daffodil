@@ -55,6 +55,7 @@ import org.apache.daffodil.lib.api.UnitTestSchemaSource
 import org.apache.daffodil.lib.api.ValidationMode
 import org.apache.daffodil.lib.cookers.EntityReplacer
 import org.apache.daffodil.lib.exceptions.Assert
+import org.apache.daffodil.lib.exceptions.Abort
 import org.apache.daffodil.lib.exceptions.UnsuppressableException
 import org.apache.daffodil.lib.externalvars.Binding
 import org.apache.daffodil.lib.schema.annotation.props.gen.BinaryFloatRep
@@ -470,7 +471,23 @@ class DFDLTestSuite private[tdml] (
       testCase match {
         case None => throw TDMLException("test " + testName + " was not found.", None)
         case Some(tc) => {
+          try {
           tc.run()
+          } catch {
+            case e: Abort if e.toString.contains("Delimiter scanning with UTF-8 is not currently supported") => {
+              import scala.language.existentials
+              val junitExceptionClassName = "org.junit.AssumptionViolatedException"
+              val junitExceptionClass = Try(Class.forName(junitExceptionClassName))
+              val junitExceptionConstructor = junitExceptionClass.map {
+                _.getDeclaredConstructor(classOf[String], classOf[Throwable])
+              }
+              val junitExceptionInstance = junitExceptionConstructor.map {
+                _.newInstance(e.getMessage, e).asInstanceOf[Exception]
+              }
+              val exceptionToThrow = junitExceptionInstance.getOrElse(e)
+              throw exceptionToThrow
+            }
+          }
         }
       }
     } else {

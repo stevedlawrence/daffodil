@@ -1097,7 +1097,7 @@ class InputSourceDataInputStreamCharIterator(dis: InputSourceDataInputStream)
       // have an easy to create a new decoder. And even if we did, this char we are about to
       // return might have relied on previous bytes (e.g. this is a latter half of a surrogate
       // pair) and it will fail to decode. This is a big problem.
-      Assert.impossible("Do not know what to do if we hit this")
+      Assert.impossible("Delimiter scanning with UTF-8 is not currently supported with the new character decode logic.")
     }
 
     val newBitPos = dis.bitPos0b
