@@ -143,6 +143,29 @@ abstract class InputSource {
   def get(dest: Array[Byte], off: Int, len: Int): Boolean
 
   /**
+   * Return a read-only ByteBuffer without copying data from this InputSource by wrapping the
+   * underlying storage of bytes. The position of the the ByteBuffer is set such that reading
+   * returns bytes starting at the current byte position of this InputSource. The limit of the
+   * ByteBuffer is set to as much data as can be provided without copying. 
+   *
+   * Return a read-only ByteBuffer that wraps the underlying data storage of bytes in this
+   * InputSource, avoiding copying data. The position of the ByteBuffer is set such that get()
+   * returns bytes from the InputSource starting at the current position(). The limit of the
+   * ByteBuffer is set to as much data can be provided without copying.
+   *
+   * Returns a tuple of the ByteBuffer and a Boolean. If we have reached the end of data, this
+   * Boolan is set to true. If it is possible that there could be more data after this
+   * ByteBuffer, the Boolean is false.
+   *
+   * To avoid allocations, this can always return the same ByteBuffer but with position() and
+   * limit() modified to match the current state. For this reason, it is important that callers
+   * do not store the returned ByteBuffer or call other functions that might also call
+   * getByteBuffer while the returned ByteBuffer is still in use. In otherwords, there should
+   * only be one user of getByteBuffer for this input source at a time.
+   */
+  def getByteBuffer(): (ByteBuffer, Boolean)
+
+  /**
    * Get the current byte position, using zero-based indexing
    *
    * @return the current byte position
@@ -224,6 +247,10 @@ class BucketingInputSource(
   private class Bucket {
     var refCount = 0
     val bytes = new Array[Byte](bucketSize)
+    // pre-allocate a ByteBuffer wrapping the array. We can reuse this everytime getByteBuffer
+    // is called to avoid allocations, but when doing so we will need to be ensure to always set
+    // the position and limit since those may change between calls for the same buffer
+    val buffer = ByteBuffer.wrap(bytes).asReadOnlyBuffer()
   }
 
   override def close(): Unit = inputStream.close()
@@ -481,6 +508,38 @@ class BucketingInputSource(
     }
   }
 
+  def getByteBuffer(): (ByteBuffer, Boolean) = {
+    // the current bucket might not be full, try to fill the entire bucket so we can return it
+    // as a ByteBuffer. If the bucket is already full, fillBucketsToIndex will do nothing.
+    var (bucketIndex, byteIndex) = bytePositionToIndicies(curBytePosition0b) 
+    if ((bucketIndex < 0) || (buckets(bucketIndex.toInt) == null))
+      throw new BacktrackingException(curBytePosition0b, maxCacheSizeInBytes)
+    val filled = fillBucketsToIndex(bucketIndex, bucketSize)
+
+    // we are guaranteed to have a bucket at this point, even if it is empty. Get the ByteBuffer
+    // associatd with this bucket. We must also set its position and limit based on the current
+    // position and space available in the bucket, since something else could have called
+    // getByteBuffer and changed these values. Note the it is important to set the limit first
+    // since th ByteBuffer might already have a limit set that is less than the new position.
+    val bb = buckets(bucketIndex.toInt).buffer
+    val endOfData =
+      if (!filled) {
+        // we hit EOF before filling this bucket. This must be the last bucket so we can set the
+        // limit to how ever many bytes are filled and set the return boolean to true to signify
+        // there is no more data available
+        bb.limit(bytesFilledInLastBucket)
+        true
+      } else {
+        // we filled the bucket, we might be able to fill another bucket if this was called
+        // again with a new byte position
+        bb.limit(bucketSize)
+        false
+      }
+    bb.position(byteIndex.toInt)
+
+    (bb, endOfData)
+  }
+
   def position(): Long = curBytePosition0b
 
   def position(bytePos0b: Long): Unit = {
@@ -558,7 +617,15 @@ class BucketingInputSource(
 
 class ByteBufferInputSource(byteBuffer: ByteBuffer) extends InputSource {
 
+  // creates a read only byte buffer that shares the underlying data. The position and limit can
+  // be changed without changing the byteBuffer parameter passed in
   private val bb = byteBuffer.asReadOnlyBuffer
+
+  // Creates a read-only ByteBuffer used only for calls to getByteBuffer. This avoids allocating
+  // a new ByteBuffer everytime getByteBuffer is called, but does mean we must be careful to
+  // reset the position and limit since a previous caller could have changed those values.
+  // that shares the content of the underlying byte buffer.
+  private val bbForGetByteBuffer = bb.asReadOnlyBuffer
 
   private val positionOffset = bb.position()
 
@@ -587,6 +654,14 @@ class ByteBufferInputSource(byteBuffer: ByteBuffer) extends InputSource {
       bb.get(dest, off, len)
       true
     }
+  }
+
+  def getByteBuffer(): (ByteBuffer, Boolean) = {
+    // Return our ByteBuffer used just for this function, resetting the position and limit to
+    // match our read only version of the underlying bytebuffer. We also return true to signify
+    // there is no more data after this buffer.
+    bbForGetByteBuffer.limit(bb.limit).position(bb.position)
+    (bbForGetByteBuffer, true)
   }
 
   def position(): Long = bb.position() - positionOffset

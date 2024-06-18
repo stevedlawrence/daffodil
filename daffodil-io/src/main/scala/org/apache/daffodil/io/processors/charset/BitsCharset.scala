@@ -22,8 +22,11 @@ import java.nio.charset.CoderResult
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.{ Charset => JavaCharset }
 import java.nio.charset.{ CharsetEncoder => JavaCharsetEncoder }
+import java.nio.charset.{ CharsetDecoder => JavaCharsetDecoder }
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
+import org.apache.daffodil.io.FormatInfo
+import org.apache.daffodil.io.InputSourceDataInputStream
 import org.apache.daffodil.lib.exceptions.Assert
 import org.apache.daffodil.lib.schema.annotation.props.gen.BitOrder
 import org.apache.daffodil.lib.util.MaybeInt
@@ -131,8 +134,11 @@ trait BitsCharsetJava extends BitsCharset {
 
   override def isEbcdicFamily(): Boolean = hasNameOrAliasContainingEBCDIC
 
-  override def newEncoder() =
+  final override def newEncoder() =
     new BitsCharsetWrappingJavaCharsetEncoder(this, javaCharset.newEncoder())
+
+  final override def newDecoder() =
+    new BitsCharsetWrappingJavaCharsetDecoder(this, javaCharset.newDecoder())
 
   override def bitWidthOfACodeUnit: Int = 8
   override def requiredBitOrder =
@@ -216,6 +222,118 @@ final class BitsCharsetWrappingJavaCharsetEncoder(
   protected def encodeLoop(in: CharBuffer, out: ByteBuffer) =
     Assert.usageError("Not to be called")
 }
+
+/**
+ * Implements BitsCharsetDecoder by encapsulating a standard JavaCharsetDecoder
+ */
+final class BitsCharsetWrappingJavaCharsetDecoder(
+  val bitsCharset: BitsCharsetJava,
+  dec: JavaCharsetDecoder,
+) extends BitsCharsetDecoder {
+
+  // TODO: We only support encodingErrorPolicy="replace"
+  dec.onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
+  dec.onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE)
+
+  /**
+   * Decode multiple characters into a CharBuffer using a Java CharsetDecoder
+   */
+  final override def decode(
+    dis: InputSourceDataInputStream,
+    finfo: FormatInfo,
+    chars: CharBuffer,
+  ): Int = {
+    // Daffodil inserts parsers to ensure we are aligned with the mandatory charset alignment
+    // unless alignmentKind="manual". If manual alignment isn't correct, we can't correctly
+    // decode any data so throw an exception
+    if (!dis.isAligned(bitsCharset.mandatoryBitAlignment)) {
+      throw new BitsCharsetDecoderUnalignedCharDecodeException(dis.bitPos1b)
+    }
+
+    val startCharPos = chars.position()
+
+    // used to figure out the final bitPos0b once we have finished decoding
+    val startBitPos0b = dis.bitPos0b
+    var numBytesDecoded: Long = 0
+
+    // When Java decodes a ByteBuffer, it can sometimes leave unread bytes at the end. For
+    // example, this happens when decoding UTF8 characters and the ByteBuffer ends with partial
+    // bytes of a multi-byte character. This keeps track of the previous ByteBuffer so that we
+    // can include those remaining bytes on the next decode loop.
+    var prevBB: ByteBuffer = null
+
+    var keepDecoding = true
+    while (keepDecoding) {
+      // Ask for a ByteBuffer of new bytes and whethere or not there could be more data if we
+      // called getByteBuffer again
+      val (curBB, endOfInput) = dis.getByteBuffer()
+      val curBBLength = curBB.remaining()
+ 
+      val decodeBB =
+        if (prevBB != null && prevBB.remaining() > 0) {
+          // Java left some remaining undecoded bytes on the previous ByteBuffer (e.g.
+          // multi-byte UTF-8 character spanning two ByteBuffers). Java expects us to grow the
+          // ByteBuffer, add more bytes, and call decode again. But the purpose of
+          // dis.getByteBuffer is to wrap underlying byte Arrays managed by the InputSource, so
+          // we can't just simply grow them. Instead, we allocate a new ByteBuffer big enough to
+          // store the prev and cur ByteBuffers and concatenate them together and decode that.
+          // There should only be a couple of bytes remaining in the prevBB so there shouldn't
+          // be any issues with overflow. And this should also be pretty rare as long as the
+          // ByteBuffers are a decent size, so likely not a performance concern.
+          val newBB = ByteBuffer.allocate(prevBB.remaining() + curBB.remaining())
+          newBB.put(prevBB)
+          newBB.put(curBB)
+          newBB.flip()
+          newBB
+        } else {
+          curBB
+        }
+      val decodeBBStartPos = decodeBB.position()
+
+      val res = dec.decode(decodeBB, chars, endOfInput)
+      if (res == CoderResult.OVERFLOW) {
+        // ran out of space in the CharBuffer, we are done
+        keepDecoding = false
+      } else if (res == CoderResult.UNDERFLOW) {
+        if (endOfInput) {
+          // ran out of data in the ByteBuffer, but there are no more bytes available, we are done
+          keepDecoding = false
+        } else {
+          // ran out of data in the ByteBuffer, but it's possible there is more data. Loop
+          // around, request more bytes, and continue decoding
+          keepDecoding = true
+
+          // there might be a small number of remaining bytes in decodeBB that weren't decoded
+          // because more data is needed to know how to deal with those bytes (e.g. a multi-bye
+          // UTF-8 character spanning ByteBuffers). Save the decode ByteBuffer so any remaining
+          // bytes can be included in the next decode
+          prevBB = decodeBB
+
+          // We are going to loop around and request a new ByteBuffer that needs to start where
+          // the last call to dis.getByteBuffer ended. This new location is just the bitPos0b
+          // when dis.getByteBuffer was called (i.e. the current bitPos0b since we haven't changed
+          // it) plus the number of bytes dis.getByteBuffer returned (i.e. curBBLength)
+          dis.setBitPos0b(dis.bitPos0b + (curBBLength.toLong * 8))
+        }
+      } else {
+        Assert.invariantFailed("Should never happen because we do not support encodingErrorPolicy='error'")
+      }
+
+      // keep track of the total number of bytes actually decoded
+      numBytesDecoded += decodeBB.position() - decodeBBStartPos
+    }
+
+    // now that we are done decoding, update the bitPos0b to be where we actually finished
+    // decoding based on the number of decoded bytes.
+    dis.setBitPos0b(startBitPos0b + (numBytesDecoded * 8))
+
+    val numCharsDecoded = chars.position() - startCharPos
+    numCharsDecoded
+  }
+
+  override def reset() = dec.reset()
+}
+
 
 /**
  * Provides BitsCharset objects corresponding to the usual java charsets found
