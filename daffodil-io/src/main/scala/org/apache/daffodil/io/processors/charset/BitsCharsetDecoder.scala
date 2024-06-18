@@ -19,13 +19,9 @@ package org.apache.daffodil.io.processors.charset
 
 import java.nio.CharBuffer
 
-import org.apache.daffodil.io.DataInputStream.NotEnoughDataException
 import org.apache.daffodil.io.FormatInfo
 import org.apache.daffodil.io.InputSourceDataInputStream
-import org.apache.daffodil.lib.exceptions.Assert
 import org.apache.daffodil.lib.exceptions.ThinException
-import org.apache.daffodil.lib.schema.annotation.props.gen.EncodingErrorPolicy
-import org.apache.daffodil.lib.util.MaybeChar
 
 class BitsCharsetDecoderMalformedException(val malformedBits: Int) extends ThinException
 
@@ -43,19 +39,6 @@ trait BitsCharsetDecoderState
 abstract class BitsCharsetDecoder {
 
   /**
-   * Decode a single character
-   *
-   * This should read data via the InputSourceDataInputStream in whatever manner is most
-   * efficient, as long as at the end of the decode the bitPosition0b is set to
-   * to end of the character.
-   *
-   * If there was a decode error, the bit position should be set to the end of
-   * malformed bits and a BitsCharsetDecoderMalformedException should be thrown
-   * specifying how many bits were malformed.
-   */
-  protected def decodeOneChar(dis: InputSourceDataInputStream, finfo: FormatInfo): Char
-
-  /**
    * Decode multiple characters into a CharBuffer, keeping track of the
    * bit positions after each Char decode
    *
@@ -65,7 +48,25 @@ abstract class BitsCharsetDecoder {
    * will be the end of the last successful character decode operation. Returns the number of
    * successfully decode characters.
    */
-  final def decode(
+  def decode(
+    dis: InputSourceDataInputStream,
+    finfo: FormatInfo,
+    chars: CharBuffer,
+  ): Int
+
+  def reset(): Unit
+}
+
+/**
+ * Decoder be used for fixed-width character sets, supporting character sets that do not have
+ * andatory byte alignment and can work with any bitOrder. This requires that the codeToChar
+ * mapping is large enough for bit bit width of the charset, and assumes any values not valid in
+ * the encoding return the unicode replacement character.
+ */
+final class BitsCharsetNonByteSizeDecoder(charset: BitsCharsetNonByteSize)
+  extends BitsCharsetDecoder {
+
+  final override def decode(
     dis: InputSourceDataInputStream,
     finfo: FormatInfo,
     chars: CharBuffer,
@@ -74,135 +75,22 @@ abstract class BitsCharsetDecoder {
     val charsToDecode = chars.remaining
     var numDecoded = 0
 
+    val bitWidth = charset.bitWidthOfACodeUnit
+
     while (keepDecoding && numDecoded < charsToDecode) {
-      val maybeChar = decodeOneHandleMalformed(dis, finfo)
-      if (maybeChar.isDefined) {
-        chars.put(maybeChar.get)
-        numDecoded += 1
-      } else {
+      if (!dis.isDefinedForLength(bitWidth)) {
         keepDecoding = false
+      } else {
+        // TODO: getUnsignedLong is going to call isDefinedForLength again. We should determine
+        // if this overhead is worth removing, or if it's better to just call getUnsignedLong
+        // and handle the NotEnoughDataException when if we run out of data
+        val code = dis.getUnsignedLong(bitWidth, finfo).toInt
+        val char = charset.codeToChar(code)
+        chars.put(char)
+        numDecoded += 1
       }
     }
     numDecoded
-  }
-
-  /**
-   * Attempts to decode a single char, handling error encoding policy
-   */
-  @inline private def decodeOneHandleMalformed(
-    dis: InputSourceDataInputStream,
-    finfo: FormatInfo
-  ): MaybeChar = {
-    try {
-      val c = decodeOneChar(dis, finfo)
-      MaybeChar(c)
-    } catch {
-      case e: BitsCharsetDecoderMalformedException => {
-        if (e.malformedBits == 0) {
-          // ran out of data, return nothing and end the decode
-          MaybeChar.Nope
-        } else {
-          finfo.encodingErrorPolicy match {
-            case EncodingErrorPolicy.Replace => {
-              MaybeChar(0xfffd.toChar)
-            }
-            case EncodingErrorPolicy.Error => {
-              // back up to before the malformed data occurred
-              // dis.setBitPosition(dis.bitPos0b - e.malformedBits)
-              // MaybeChar.Nope // TODO: should this rethrow the exception instead? So callers of decode must determine how to handle decode errors
-              Assert.nyi("dfdl:encodingErrorPolicy=\"error\"")
-            }
-          }
-        }
-      }
-    }
-  }
-
-  def reset(): Unit
-}
-
-/**
- * Base class for byte based decoders
- *
- * Provides methods to get a single byte. Also
- * handles logic related to error encoding policy and the replacement
- * characters. Implementing class only need to use the provided methods to get
- * a byte(s) and convert to a char and perform validation on the code point.
- */
-abstract class BitsCharsetDecoderByteSize extends BitsCharsetDecoder {
-
-  // gets the next byte from the data, returns an int in the range 0 to 255
-  @inline protected final def getByte(
-    dis: InputSourceDataInputStream,
-    bitsConsumedSoFar: Int
-  ): Int = {
-    if (!dis.isDefinedForLength(8)) {
-      throw new BitsCharsetDecoderMalformedException(bitsConsumedSoFar)
-    }
-    if (!dis.isAligned(8)) {
-      throw new BitsCharsetDecoderUnalignedCharDecodeException(dis.bitPos1b)
-    }
-    // read directly from the input source. This should be faster, but makes
-    // assumptions that data is aligned. This should always succeed due to
-    // the above check
-    val byte = dis.inputSource.get()
-    // need to update the bitPosition since the inputsource maintains its own
-    // position
-    dis.setBitPos0b(dis.bitPos0b + 8)
-    byte
-  }
-
-  override def reset(): Unit = {
-    // do nothing
-  }
-}
-
-/**
- * Some encodings need state, but only for the storing of a low surrogate
- * pair. This encapsulates that logic. When a class extends this class, it ust
- * implement deocodeOneUnicodeChar, which should decode one char, and if there
- * is a high/low surrogate pair it should call setLowSurrgoate on the low and
- * return the high.
- */
-abstract class BitsCharsetDecoderCreatesSurrogates extends BitsCharsetDecoderByteSize {
-
-  class BitsCharsetDecoderSurrogateState(
-    var lowSurrogate: MaybeChar = MaybeChar.Nope
-  ) extends BitsCharsetDecoderState
-
-  protected var state = new BitsCharsetDecoderSurrogateState()
-
-  final protected override def decodeOneChar(
-    dis: InputSourceDataInputStream,
-    finfo: FormatInfo
-  ): Char = {
-    if (state.lowSurrogate.isDefined) {
-      val low = state.lowSurrogate.get
-      state.lowSurrogate = MaybeChar.Nope
-      low
-    } else {
-      decodeOneUnicodeChar(dis, finfo)
-    }
-  }
-
-  protected def decodeOneUnicodeChar(dis: InputSourceDataInputStream, finfo: FormatInfo): Char
-
-  protected def setLowSurrogate(low: Char): Unit = state.lowSurrogate = MaybeChar(low)
-
-  override def reset(): Unit = state.lowSurrogate = MaybeChar.Nope
-}
-
-final class BitsCharsetNonByteSizeDecoder(charset: BitsCharsetNonByteSize)
-  extends BitsCharsetDecoder {
-
-  protected def decodeOneChar(dis: InputSourceDataInputStream, finfo: FormatInfo): Char = {
-    val code =
-      try {
-        dis.getUnsignedLong(charset.bitWidthOfACodeUnit, finfo).toInt
-      } catch {
-        case e: NotEnoughDataException => throw new BitsCharsetDecoderMalformedException(0)
-      }
-    charset.codeToChar(code)
   }
 
   override def reset(): Unit = {

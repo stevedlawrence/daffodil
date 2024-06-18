@@ -92,7 +92,7 @@ private[io] class MarkPool() extends Pool[MarkState] {
  *
  * Underlying representation is an InputSource containing all input data.
  */
-final class InputSourceDataInputStream private (val inputSource: InputSource)
+final class InputSourceDataInputStream(val inputSource: InputSource)
   extends DataInputStreamImplMixin
   with java.io.Closeable {
 
@@ -625,6 +625,7 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
     val startingBitPos = bitPos0b
     withLocalCharBuffer { lcb =>
       val cb = lcb.getBuf(nChars)
+      finfo.decoder.reset()
       val numDecoded = finfo.decoder.decode(this, finfo, cb)
       if (numDecoded > 0) {
         Maybe(cb.flip.toString)
@@ -633,6 +634,67 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
         Maybe.Nope
       }
     }
+  }
+
+  /**
+   * Return a read-only ByteBuffer that wraps the underlying data storage of bytes in the
+   * InputSource, avoiding copying data. The position of the ByteBuffer is set such that get()
+   * returns bytes from the InputSource starting at the current bitPosition rounded down to the
+   * nearest byte. The limit of the ByteBuffer is set to as much data can be provided without
+   * copying or reading passed the bitLimit rounded down to the nearest byte.
+   * 
+   * If there is no more data possibly available at the current position up to the limit, then
+   * this returns a ByteBuffer with no remaining() data. Otherwise returns a ByteBuffer with at
+   * least one byte remaining().
+   *
+   * Note that users of this must manually take into account alignment, fragment bits,
+   * byteOrder, bitOrder, etc. For this reason, it is recommended this only be used in cases
+   * where these properties can be ignored, such as when decoding mandatory byte-aligned
+   * byte-sized characters.
+   *
+   * This also returns a boolean that signifies if there could be more data after this
+   * ByteBuffer, taking into account the current bitLimit. If we have reach the end of data or
+   * the bitLimit, this Boolean is set to true signify the end of available data.
+   *
+   * To avoid allocations, this can always return the same ByteBuffer but with position() and
+   * limit() modified to match the current state. For this reason, it is important that callers
+   * do not store the returned ByteBuffer or call other functions that might also call
+   * getByteBuffer while the returned ByteBuffer is still in use. In otherwords, there should
+   * only be one user of getByteBuffer for this input source at a time.
+   */
+  final def getByteBuffer(): (ByteBuffer, Boolean) = {
+    val (bb, endOfInputSource) = inputSource.getByteBuffer()
+
+    var endOfData = endOfInputSource
+
+    // the byteBuffer is limited by avilable data, but we may need to limit it more by bitLimit
+    if (bitLimit0b.isDefined) {
+      // get the number of bytes this DataInputStream could has available, rounding position up
+      // and limit down to the nearest byte position
+      val disPos = bitPos0b / 8
+      val disLim = bitLimit0b.get / 8
+      val disAvailableBytes = disLim - disPos
+
+      // ByteBuffer's are int based, so the maximum limit it could have is INT_MAX. We only need
+      // to think about further restricting the ByteBuffer if the dis has less than INT_MAX
+      // amount of bytes.
+      if (disAvailableBytes < Int.MaxValue) {
+        // get the number of bytes the bb could allow reading
+        val bbPos = bb.position()
+        val bbLim = bb.limit()
+        val bbAvailableBytes = bbLim - bbPos
+   
+        if (disAvailableBytes.toInt < bbAvailableBytes) {
+          // the bitLimit has less bytes available than the actual ByteBuffer provided. Reduce
+          // the limit of the ByteBuffer to match, and signify tha there is no more data that we
+          // could get.
+          bb.limit(bbPos + disAvailableBytes.toInt)
+          endOfData = true
+        }
+      }
+    }
+
+    (bb, endOfData)
   }
 
   lazy val skipCharBuffer = CharBuffer.allocate(32)
@@ -647,6 +709,10 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
     } else {
       var remainingCharsToSkip = nChars
       var keepGoing = true
+
+      // starting a new decode, must reset the decoder state. We wont' rest state in the loop so
+      // the decoder can keep decoding where it left off
+      finfo.decoder.reset()
 
       while (keepGoing && remainingCharsToSkip > 0) {
         val charsToSkip = Math.min(remainingCharsToSkip, skipCharBuffer.capacity)
@@ -693,16 +759,22 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
       regexMatchBuffer.position(0)
       regexMatchBuffer.limit(0)
 
+      // reset the decoder once before we start. We will not need to do this again while looking
+      // for a match since we may need to decode characters multiple times and we want the
+      // decoder to be able to continue to decoding where it left off
+      finfo.decoder.reset()
+
       var keepMatching = true
       var isMatch = false
 
       while (keepMatching) {
         // set the position to the last place data stopped decoding and increase
-        // the limit so we can fill more data
+        // the limit so we can fill more data. The bit position is where ever we last stopped
+        // decoding so we do not need to change that or reset the decoder state
         regexMatchBuffer.position(regexMatchBuffer.limit())
         regexMatchBuffer.limit(regexMatchBufferLimit)
-
         val numDecoded = finfo.decoder.decode(this, finfo, regexMatchBuffer)
+
         val potentiallyMoreData = regexMatchBuffer.position() == regexMatchBuffer.limit()
 
         regexMatchBuffer.flip
