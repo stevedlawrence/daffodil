@@ -21,7 +21,6 @@ import java.io.InputStream
 import java.math.{ BigInteger => JBigInt }
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 
 import org.apache.daffodil.lib.exceptions.Assert
 import org.apache.daffodil.lib.schema.annotation.props.gen.BitOrder
@@ -844,22 +843,25 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
 }
 
 class InputSourceDataInputStreamCharIteratorState {
-  var bitPositionAtLastFetch0b = 0L
 
-  // CharBuffer and LongBuffer for some amount of cache lookahead
   var decodedChars = CharBuffer.allocate(8)
-  var bitPositions = LongBuffer.allocate(8)
 
-  var moreDataAvailable: Boolean = true
+  var expectedBitPos0b: Long = _
+  var curCharStartBitPos0b: Long = _
+  var nextFetchStartBitPos0b: Long = _
+  var moreDataAvailable: Boolean = _
+
+  clear()
 
   def clear(): Unit = {
     // Set the Buffers for reading with zero data. The iterator will see there
     // is no cachd decoded chars to read and perform the appropriate actions to
     // fill it in
     decodedChars.position(0).limit(0)
-    bitPositions.position(0).limit(0)
     moreDataAvailable = true
-    bitPositionAtLastFetch0b = 0L
+    expectedBitPos0b = 0L
+    curCharStartBitPos0b = 0L
+    nextFetchStartBitPos0b = 0L
   }
 
   def assignFrom(other: InputSourceDataInputStreamCharIteratorState): Unit = {
@@ -867,7 +869,7 @@ class InputSourceDataInputStreamCharIteratorState {
     // because saving state requires duplicating the long and charbuffers,
     // which is fairly expensive and can use up alot of memory, especially when
     // there are lots of points of uncertainties. Instead, the
-    // checkNeedsRefetch method will determine if something changed the
+    // checkNeedsReset method will determine if something changed the
     // bitPosition (e.g. resetting a mark), and just clear all the internal
     // state, leading to a redecode of data. This does mean that if we reset
     // back to a mark we will repeat work that has already been done. But that
@@ -894,67 +896,75 @@ class InputSourceDataInputStreamCharIterator(dis: InputSourceDataInputStream)
   }
 
   @inline
-  private def checkNeedsRefetch(): Unit = {
+  private def checkNeedsReset(): Unit = {
     val cis = dis.cst.charIteratorState
-    if (cis.bitPositionAtLastFetch0b != dis.bitPos0b) {
-      // Something outside of the char iterator  moved the bit position since
-      // the last time we fetched data (e.g. backtracking to a previous mark,
-      // in which we do not save/restore this iterator state data). In this
-      // case, all of our cached decoded data is wrong. So lets clear the
-      // iterator state and reset the last fetch state so that more data will
-      // be fetched
-      dis.cst.charIteratorState.clear()
-      dis.cst.charIteratorState.bitPositionAtLastFetch0b = dis.bitPos0b
+    if (cis.expectedBitPos0b != dis.bitPos0b) {
+      // Something outside of the char iterator moved the bit position since the last time we
+      // decoded data (e.g. backtracking to a previous mark, in which we do not save/restore
+      // this iterator state data). In this case, all of our cached decoded data is wrong. So
+      // clear out the char iterator state, which will force fetch() to be called and redecode
+      // the data. Note that we don't call reset() because that sets finfo to null and we don't
+      // want to do that. But we do need to reset the internal decoder() state
+      cis.clear()
+      if (finfo != null) finfo.decoder.reset()
+
+      // we set startDecodeEndBitPos0b to bitPos0b because this is where the decode will start
+      // when fetch is called
+      cis.nextFetchStartBitPos0b = dis.bitPos0b
+      cis.expectedBitPos0b = dis.bitPos0b
     }
   }
 
   private def fetch(): Unit = {
     val cis = dis.cst.charIteratorState
     if (cis.moreDataAvailable) {
-      val startingBitPos = dis.bitPos0b
+
+      // Need to decode more data. First reset the bit position to where we last stopped
+      // decoding. Alignment may be necessary if this is the first time decoding with this char
+      // iterator
+      dis.setBitPos0b(cis.nextFetchStartBitPos0b)
 
       if (!dis.align(finfo.encodingMandatoryAlignmentInBits, finfo)) {
-        // failed to align, which means there must be no more data
+        // failed to align, which means there is not enough data for a single char. Change the
+        // state to signify this, which will cause next()/peek() to fail when actually trying to
+        // get a character
         cis.moreDataAvailable = false
       } else {
-        // Need more data--the previous call to deocde only stopped
-        // because we ran out of space in our CharBuffer, so there should
-        // be more data to get and we need to make space. There might
-        // still be some data in the Buffers that haven't been read even
-        // though we need more data (e.g. because of peek2), so compact() the
-        // buffers, which makes more space and flips for putting, then call
-        // decode.
+        // char buffer we are going to decode characters into 
         val decodedChars = cis.decodedChars
-        val bitPositions = cis.bitPositions
 
-        // we need to pick up decoding where we last left off if there are any
-        // characters still cached. This location is found in the last element
-        // of the bitPositions buffer
-        if (bitPositions.limit() > 0) {
-          val lastFetchBitPositionEnd = bitPositions.get(bitPositions.limit() - 1)
-          dis.setBitPos0b(lastFetchBitPositionEnd)
+        // keep track of where this characters we are about to read will start, used to
+        // calculate new bit positions when next() is called. Note that this could be different
+        // from expecedBitPos0b due to alignment, or different from nextFetchStartBitPos0b if
+        // we already have some decoded chars
+        if (decodedChars.remaining() == 0) {
+          cis.curCharStartBitPos0b = dis.bitPos0b
         }
 
+        // The previous call to decode() only stopped because we ran out of space in our
+        // CharBuffer, so there could be more data to get and we need to make space. There might
+        // still be some data in the CharBuffer that hasn't been read even though we need more
+        // data (e.g. because of peek2), so compact() the buffers. This copies those remaining
+        // characters to the front of the CharBuffer and updates the position and limit so
+        // decode() appends characters after those
         decodedChars.compact()
-        bitPositions.compact()
+        val numDecoded = finfo.decoder.decode(dis, finfo, decodedChars)
 
-        val numDecoded = finfo.decoder.decode(dis, finfo, decodedChars, bitPositions)
+        // save where we finished decoding so we know where the next decode should start if
+        // fetch is called again
+        cis.nextFetchStartBitPos0b = dis.bitPos0b
 
-        // flip for reading
+        // reset back to befor we aligned/decoded so it appears like nothing changed
+        dis.setBitPos0b(cis.expectedBitPos0b)
+
+        // flip CharBuffer for reading
         decodedChars.flip()
-        bitPositions.flip()
 
         if (numDecoded == 0) {
-          // ran out of data. If we try to consume more than is currently
-          // available in decodedChars, it's an error
+          // ran out of data. calling hasNext() will return fail once next() consumes all the data
+          // in the CharBuffer
           cis.moreDataAvailable = false
         }
-
-        // we have aligned and decoded characters which moves the bit position
-        // ahead, so reset the bit position to before we started the decode.
-        // We'll only update the bit position when characters are actually read
-        // when next() is called
-        dis.setBitPos0b(startingBitPos)
       }
     } else {
       // do nothing, no more data to get
@@ -962,12 +972,13 @@ class InputSourceDataInputStreamCharIterator(dis: InputSourceDataInputStream)
   }
 
   def peek(): Char = {
-    checkNeedsRefetch()
+    checkNeedsReset()
 
-    val decodedChars = dis.cst.charIteratorState.decodedChars
+    val cis = dis.cst.charIteratorState
+    val decodedChars = cis.decodedChars
     if (decodedChars.remaining >= 1) {
       decodedChars.get(decodedChars.position())
-    } else if (dis.cst.charIteratorState.moreDataAvailable) {
+    } else if (cis.moreDataAvailable) {
       fetch()
       peek()
     } else {
@@ -976,12 +987,13 @@ class InputSourceDataInputStreamCharIterator(dis: InputSourceDataInputStream)
   }
 
   def peek2(): Char = {
-    checkNeedsRefetch()
+    checkNeedsReset()
 
-    val decodedChars = dis.cst.charIteratorState.decodedChars
+    val cis = dis.cst.charIteratorState
+    val decodedChars = cis.decodedChars
     if (decodedChars.remaining >= 2) {
       decodedChars.get(decodedChars.position() + 1)
-    } else if (dis.cst.charIteratorState.moreDataAvailable) {
+    } else if (cis.moreDataAvailable) {
       fetch()
       peek2()
     } else {
@@ -998,9 +1010,28 @@ class InputSourceDataInputStreamCharIterator(dis: InputSourceDataInputStream)
 
     val cis = dis.cst.charIteratorState
     val char = cis.decodedChars.get()
-    val pos = cis.bitPositions.get()
-    dis.setBitPos0b(pos)
-    cis.bitPositionAtLastFetch0b = pos
+
+    if (finfo.maybeCharWidthInBits.isDefined) {
+      val newStartPos = cis.curCharStartBitPos0b + finfo.maybeCharWidthInBits.get
+      dis.setBitPos0b(newStartPos)
+    } else {
+      // not a fixed with so we decode just a single char and let that update the bit position
+      //
+      // TODO: Need a solution for this. We probably can't use the same technique that we use
+      // for regex and just recode the data. Surrogate chars are going to a problem since Java's
+      // UTF-8 decode won't decode one half of a surrogate pair. We also have issues with the
+      // internal state of the decoder. We don't want to reset() the current decoder because we
+      // want future decode() operations to use whatever state that decoder has. And we don't
+      // have an easy to create a new decoder. And even if we did, this char we are about to
+      // return might have relied on previous bytes (e.g. this is a latter half of a surrogate
+      // pair) and it will fail to decode. This is a big problem.
+      Assert.impossible("Do not know what to do if we hit this")
+    }
+
+    val newBitPos = dis.bitPos0b
+    cis.curCharStartBitPos0b = newBitPos
+    cis.expectedBitPos0b = newBitPos
+
     char
   }
 }
