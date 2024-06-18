@@ -25,7 +25,6 @@ import java.io.OutputStream
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 import java.nio.charset.CoderResult
 import java.nio.charset.StandardCharsets
 import scala.collection.mutable
@@ -1914,8 +1913,6 @@ object VerifyTestCase {
       override def tunable: DaffodilTunables = doNotUse
 
       override def regexMatchBuffer: CharBuffer = doNotUse
-
-      override def regexMatchBitPositionBuffer: LongBuffer = doNotUse
     }
 
     using(InputSourceDataInputStream(bytes)) { dis =>

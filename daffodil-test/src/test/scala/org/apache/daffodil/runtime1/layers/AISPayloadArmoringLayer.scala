@@ -108,7 +108,6 @@ class AISPayloadArmoringOutputStream(jos: java.io.OutputStream) extends OutputSt
     override def encodingMandatoryAlignmentInBits: Int = doNotUse
     override def tunable: DaffodilTunables = doNotUse
     override def regexMatchBuffer: CharBuffer = doNotUse
-    override def regexMatchBitPositionBuffer: LongBuffer = doNotUse
   }
 
   override def close(): Unit = {

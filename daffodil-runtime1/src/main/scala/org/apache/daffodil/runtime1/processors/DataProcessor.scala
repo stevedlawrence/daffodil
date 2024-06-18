@@ -21,7 +21,6 @@ import java.io.File
 import java.io.IOException
 import java.io.ObjectOutputStream
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 import java.nio.channels.Channels
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -196,11 +195,9 @@ class DataProcessor(
   // avoid large memory allocations. The alternative is to use a ThreadLocal
   // companion object, but that would have not access to tunables, so one could
   // not configure the size of the regex match buffers.
-  @transient lazy val regexMatchState = new ThreadLocal[(CharBuffer, LongBuffer)] {
+  @transient lazy val regexMatchState = new ThreadLocal[CharBuffer] {
     override def initialValue = {
-      val cb = CharBuffer.allocate(tunables.maximumRegexMatchLengthInCharacters)
-      val lb = LongBuffer.allocate(tunables.maximumRegexMatchLengthInCharacters)
-      (cb, lb)
+      CharBuffer.allocate(tunables.maximumRegexMatchLengthInCharacters)
     }
   }
 
