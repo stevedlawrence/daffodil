@@ -18,7 +18,6 @@
 package org.apache.daffodil.io.processors.charset
 
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 
 import org.apache.daffodil.io.DataInputStream.NotEnoughDataException
 import org.apache.daffodil.io.FormatInfo
@@ -60,22 +59,17 @@ abstract class BitsCharsetDecoder {
    * Decode multiple characters into a CharBuffer, keeping track of the
    * bit positions after each Char decode
    *
-   * Decodes at most chars.remaining() characters in the chars CharBuffer. If
-   * bitPositions is provided, for each decoded character the bitPosition0b
-   * where the character decode operation finished is stored in the
-   * bitPositions LongBuffer. Upon return of the decode operation, the
-   * bitPosition0b of the InputSourceDataInputStream will be the end of the last
-   * successful character decode operation. Returns the number of successfully
-   * decode characters.
+   * Decodes at most chars.remaining() characters in the chars CharBuffer.
+   *
+   * Upon return of the decode operation, the bitPosition0b of the InputSourceDataInputStream
+   * will be the end of the last successful character decode operation. Returns the number of
+   * successfully decode characters.
    */
   final def decode(
     dis: InputSourceDataInputStream,
     finfo: FormatInfo,
     chars: CharBuffer,
-    bitPositions: LongBuffer = null
   ): Int = {
-    Assert.invariant(bitPositions == null || (chars.remaining <= bitPositions.remaining))
-
     var keepDecoding = true
     val charsToDecode = chars.remaining
     var numDecoded = 0
@@ -84,9 +78,6 @@ abstract class BitsCharsetDecoder {
       val maybeChar = decodeOneHandleMalformed(dis, finfo)
       if (maybeChar.isDefined) {
         chars.put(maybeChar.get)
-        if (bitPositions != null) {
-          bitPositions.put(dis.bitPos0b)
-        }
         numDecoded += 1
       } else {
         keepDecoding = false
