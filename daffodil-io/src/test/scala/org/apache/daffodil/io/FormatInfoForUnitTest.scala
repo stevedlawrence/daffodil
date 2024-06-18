@@ -18,7 +18,6 @@
 package org.apache.daffodil.io
 
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 import java.nio.charset.CodingErrorAction
 
 import org.apache.daffodil.io.processors.charset.BitsCharset
@@ -59,7 +58,6 @@ class FormatInfoForUnitTest private () extends FormatInfo {
   var encodingErrorPolicy: EncodingErrorPolicy = EncodingErrorPolicy.Replace
   var tunable: DaffodilTunables = DaffodilTunables()
   var regexMatchBuffer = CharBuffer.allocate(1024)
-  var regexMatchBitPositionBuffer = LongBuffer.allocate(1024)
 
   def reset(cs: BitsCharset): Unit = {
     priorEncoding = cs
@@ -108,7 +106,6 @@ class FakeFormatInfo(val bitOrder: BitOrder, val byteOrder: ByteOrder) extends F
   def encodingErrorPolicy: EncodingErrorPolicy = ???
   def tunable: DaffodilTunables = ???
   def regexMatchBuffer: CharBuffer = ???
-  def regexMatchBitPositionBuffer: LongBuffer = ???
 }
 
 object FakeFormatInfo_MSBF_BE

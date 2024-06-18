@@ -18,7 +18,6 @@
 package org.apache.daffodil.io
 
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 
 import org.apache.daffodil.io.processors.charset.BitsCharsetDecoder
 import org.apache.daffodil.io.processors.charset.BitsCharsetEncoder
@@ -117,8 +116,7 @@ trait FormatInfo {
   def tunable: DaffodilTunables
 
   /**
-   * Buffers used for regex matching
+   * Buffer used for regex matching
    */
   def regexMatchBuffer: CharBuffer
-  def regexMatchBitPositionBuffer: LongBuffer
 }

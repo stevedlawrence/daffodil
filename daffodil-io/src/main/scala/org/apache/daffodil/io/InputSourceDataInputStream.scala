@@ -675,20 +675,25 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
   }
 
   def lookingAt(matcher: java.util.regex.Matcher, finfo: FormatInfo): Boolean = {
+    // Get the current bit position. The following code changes the bit position while we align
+    // and decode characters looking for a match. If we don't find a match we need to reset back
+    // to this position
+    val startingBitPos = bitPos0b
     val aligned = align(finfo.encodingMandatoryAlignmentInBits, finfo)
     if (!aligned) {
       false
     } else {
       var regexMatchBufferLimit = finfo.tunable.initialRegexMatchLimitInCharacters
       val regexMatchBuffer = finfo.regexMatchBuffer
-      val regexMatchBitPositionBuffer = finfo.regexMatchBitPositionBuffer
+
+      // the above align() call may have moved our bit position. If a match is found, then we
+      // calculate the new ending bit position based on where we actually started decoding
+      // characters
+      val startingDecodeBitPos = bitPos0b
 
       regexMatchBuffer.position(0)
       regexMatchBuffer.limit(0)
-      regexMatchBitPositionBuffer.position(0)
-      regexMatchBitPositionBuffer.limit(0)
 
-      val startingBitPos = bitPos0b
       var keepMatching = true
       var isMatch = false
 
@@ -697,15 +702,11 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
         // the limit so we can fill more data
         regexMatchBuffer.position(regexMatchBuffer.limit())
         regexMatchBuffer.limit(regexMatchBufferLimit)
-        regexMatchBitPositionBuffer.position(regexMatchBitPositionBuffer.limit())
-        regexMatchBitPositionBuffer.limit(regexMatchBufferLimit)
 
-        val numDecoded =
-          finfo.decoder.decode(this, finfo, regexMatchBuffer, regexMatchBitPositionBuffer)
+        val numDecoded = finfo.decoder.decode(this, finfo, regexMatchBuffer)
         val potentiallyMoreData = regexMatchBuffer.position() == regexMatchBuffer.limit()
 
         regexMatchBuffer.flip
-        regexMatchBitPositionBuffer.flip
 
         if (numDecoded > 0) {
           // we decoded at least one extra characer than we had before, so the
@@ -745,12 +746,40 @@ final class InputSourceDataInputStream private (val inputSource: InputSource)
       }
 
       if (isMatch && matcher.end != 0) {
-        // got a non-zero length match, set the bit position to the end of the
-        // match, note that the end match position is the index *after* the
-        // last match, so we need the ending bitPosition of the previous
-        // character
-        val endingBitPos = regexMatchBitPositionBuffer.get(matcher.end - 1)
-        setBitPos0b(endingBitPos)
+        // We matched some number of characters. The value of bitPos0b is currntly where we
+        // finished decoding characters, but we probably decoded more characters than we
+        // matched. So we need to figure out how many bits the matched characters represent and
+        // move bitPos0b back to that
+        val numMatchedChars = matcher.end()
+        if (finfo.maybeCharWidthInBits.isDefined) {
+          // This is a fixed-width encoding--we can just multiply the number of matched
+          // characters by the fixed width to get the number of bits from where we started
+          // decoding
+          val numBitsDecoded = numMatchedChars.toLong * finfo.maybeCharWidthInBits.get
+          setBitPos0b(startingDecodeBitPos + numBitsDecoded)
+        } else {
+          // This is a non fixed-width encoding (e.g. UTF-8), so we don't know how many bits
+          // were actually matched. To figur it out, we just reset back to where we started
+          // decoding and redecode the bytes with a CharBuffer limited to how many characters
+          // were matched, essentially redecoding only the matched characters. When decode()
+          // returns, bitPos0b will have been set to where the decode of those characters
+          // finished, putting bitPos0b at the right spot.
+          //
+          // Note that we cannot do the opposite and encode the matched characters into bytes
+          // and count the number of bytes. This is because if encodingErrorPolicy is "replace"
+          // then a single malformed byte could decode to a unicode replacement character, but
+          // that same character would encode to three bytes, resulting in the wrong number of
+          // bytes matched. We could potentially account for that, but it adds extra complexity.
+          setBitPos0b(startingDecodeBitPos)
+          regexMatchBuffer.position(0).limit(numMatchedChars)
+          finfo.decoder.reset()
+          finfo.decoder.decode(this, finfo, regexMatchBuffer)
+
+          // the Matcher passed in will access the CharBuffer if it ever calls functions like
+          // matcher.group(). So we need to flip the CharBuffer for that to work since right now
+          // position() == limit()
+          regexMatchBuffer.flip()
+        }
       } else {
         // failed to match, set the bit position back to where we started
         setBitPos0b(startingBitPos)

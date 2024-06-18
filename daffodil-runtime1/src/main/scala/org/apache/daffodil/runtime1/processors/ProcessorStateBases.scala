@@ -18,7 +18,6 @@
 package org.apache.daffodil.runtime1.processors
 
 import java.nio.CharBuffer
-import java.nio.LongBuffer
 
 import org.apache.daffodil.io.DataStreamCommon
 import org.apache.daffodil.io.FormatInfo
@@ -684,7 +683,6 @@ final class CompileState(
   }
 
   def regexMatchBuffer: CharBuffer = Assert.usageError("Not to be used.")
-  def regexMatchBitPositionBuffer: LongBuffer = Assert.usageError("Not to be used.")
 
   // $COVERAGE-OFF$
   override def setVariable(
