@@ -24,7 +24,9 @@ const { DefaultArtifactClient } = require('@actions/artifact')
 const { exec } = require('@actions/exec');
 
 async function run() {
-	if (process.exitCode === core.ExitCode.Failure) {
+	// sometimes the existCode is 'undefined', even when there are no failures.
+	// Not sure how this actully happens.
+	if (process.exitCode !== undefined && process.exitCode !== core.ExitCode.Success) {
 		core.warning("Workflow failed, disabling publishing: " + process.exitCode);
 		return;
 	}
