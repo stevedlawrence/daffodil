@@ -116,16 +116,16 @@ async function run() {
 	// versions.
 	const sbt_dir = `${ os.homedir }/.sbt/1.0`
 	fs.mkdirSync(`${ sbt_dir }/plugins`, { recursive: true });
-	fs.appendFileSync(`${ sbt_dir }/plugins/build.sbt`, 'addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.1.2")');
-	fs.appendFileSync(`${ sbt_dir }/build.sbt`, `pgpSigningKey := Some("${ gpg_signing_key_id }")`);
+	fs.appendFileSync(`${ sbt_dir }/plugins/build.sbt`, 'addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.1.2")\n');
+	fs.appendFileSync(`${ sbt_dir }/build.sbt`, `pgpSigningKey := Some("${ gpg_signing_key_id }")\n`);
 
 	if (publish) {
 		// if publishing is enabled, publishing to the apache staging repository
 		// with the provided credentials. We must diable gigahorse since that fails
 		// to publish on some systems
-		fs.appendFileSync(`${ sbt_dir }/build.sbt`, 'ThisBuild / updateOptions := updateOptions.value.withGigahorse(false)');
-		fs.appendFileSync(`${ sbt_dir }/build.sbt`, `ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager", "repository.apache.org", "${ nexus_username }", "${ nexus_password }")`);
-		fs.appendFileSync(`${ sbt_dir }/build.sbt`, 'ThisBuild / publishTo := Some("Apache Staging Distribution Repository" at "https://repository.apache.org/service/local/staging/deploy/maven2")');
+		fs.appendFileSync(`${ sbt_dir }/build.sbt`, 'ThisBuild / updateOptions := updateOptions.value.withGigahorse(false)\n');
+		fs.appendFileSync(`${ sbt_dir }/build.sbt`, `ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager", "repository.apache.org", "${ nexus_username }", "${ nexus_password }")\n`);
+		fs.appendFileSync(`${ sbt_dir }/build.sbt`, 'ThisBuild / publishTo := Some("Apache Staging Distribution Repository" at "https://repository.apache.org/service/local/staging/deploy/maven2")\n');
 	} else {
 		// if publishing is not enabled, we still want the ability for workflows to
 		// run 'sbt publishSigned' so they don't have to change logic depending on
@@ -133,7 +133,7 @@ async function run() {
 		// to a local maven repo
 		const maven_local_dir = `${ release_candidate_dir }/maven-local`;
 		fs.mkdirSync(maven_local_dir);
-		fs.appendFileSync(`${ sbt_dir }/build.sbt`, `ThisBuild / publishTo := Some(MavenCache("maven-local", file("${ maven_local_dir }")))`);
+		fs.appendFileSync(`${ sbt_dir }/build.sbt`, `ThisBuild / publishTo := Some(MavenCache("maven-local", file("${ maven_local_dir }")))\n`);
 	}
 
 	// checkout artifact dist directory
