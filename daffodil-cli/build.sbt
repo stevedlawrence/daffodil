@@ -36,7 +36,7 @@ val optSourceDateEpoch = scala.util.Properties.envOrNone("SOURCE_DATE_EPOCH")
 // default value of this setting includes the -f option at the end, which needs to stay at the
 // end since sbt-native-packager provides the archive file immediately after
 Universal / packageZipTarball / universalArchiveOptions := {
-  val optMtime: Seq[String] = optSourceDateEpoch.map { epoch =>
+  val optMtime = optSourceDateEpoch.map { epoch =>
     val fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ssZ")
     fmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"))
     val mtime = fmt.format(new java.util.Date(epoch.toLong * 1000))
