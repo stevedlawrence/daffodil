@@ -164,7 +164,7 @@ async function run() {
 	let source_date_epoch = "";
 	await exec("git", ["show", "--no-patch", "--format=%ct", "HEAD"], {
 		listeners: {
-			stdout: (data) => { source_date_epoch += data.toString(); }
+			stdout: (data) => { source_date_epoch += data.toString().trim(); }
 		}
 	});
 
