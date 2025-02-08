@@ -19,8 +19,8 @@ name: CI
 # adding another commit to a pull request or reopening a pull request.
 
 on:
-  push:
-    branches-ignore: [ 'dependabot/**' ]
+#  push:
+#    branches-ignore: [ 'dependabot/**' ]
   pull_request:
     types: [opened, synchronize, reopened]
 
