@@ -24,7 +24,7 @@ const { DefaultArtifactClient } = require('@actions/artifact')
 const { exec } = require('@actions/exec');
 
 async function run() {
-	if (process.exitCode != core.ExitCode.Success) {
+	if (process.exitCode === core.ExitCode.Failure) {
 		core.warning("Workflow failed, disabling publishing: " + process.exitCode);
 		return;
 	}
