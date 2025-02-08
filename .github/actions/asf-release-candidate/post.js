@@ -67,8 +67,8 @@ async function run() {
 		// just for testing, so upload the maven-local and artifact directories so
 		// they can be verified for correctness
 		const release_candidate_dir = `${ os.tmpdir() }/release-candidate`;
-		const upload_artifacts = fs.readdirSync(release_candidate_dir, { recursive: true, withFileTypes: true }).flatMap((dirent) => {
-			const keepArtifact = dirent.isFile() && !dirent.parentPath.includes("/.svn/");
+		const upload_artifacts = fs.readdirSync(release_candidate_dir, { recursive: true, withFileTypes: true }).flatMap((artifact) => {
+			const keepArtifact = artifact.isFile() && !artifact.parentPath.includes("/.svn/");
 			if (keepArtifact) {
 				return `${ artifact.parentPath }/${ artifact.name }`;
 			} else {
