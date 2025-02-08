@@ -17,7 +17,6 @@
 
 const fs = require("fs");
 const os = require("os");
-const path = require("path");
 const core = require("@actions/core");
 const github = require("@actions/github");
 const { DefaultArtifactClient } = require('@actions/artifact')
@@ -69,9 +68,9 @@ async function run() {
 		// they can be verified for correctness
 		const release_candidate_dir = `${ os.tmpdir() }/release-candidate`;
 		const upload_artifacts = fs.readdirSync(release_candidate_dir, { recursive: true, withFileTypes: true }).flatMap((dirent) => {
-			const keepAritfact = dirent.isFile() && !dirent.parentPath.includes("/.svn/");
+			const keepArtifact = dirent.isFile() && !dirent.parentPath.includes("/.svn/");
 			if (keepArtifact) {
-				return path.resolve(dirent.parentPath, dirent.name);
+				return `${ artifact.parentPath }/${ artifact.name }`;
 			} else {
 				return [];
 			}
