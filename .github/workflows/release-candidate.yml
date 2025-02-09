@@ -107,6 +107,9 @@ jobs:
           sudo cp containers/build-release/src/wix_wine.sh $WIX/light.exe
           echo "WIX=$WIX" >> $GITHUB_ENV
 
+      - name: fail
+        run: false
+
       # Publish jars to a staging maven repository and write helper binary
       # artifacts to the artifact directory
       #
