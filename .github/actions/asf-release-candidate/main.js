@@ -70,7 +70,7 @@ async function run() {
 	} else if (fs.existsSync("build.sbt")) {
 		project_version = fs.readFileSync("build.sbt").toString().match(/version := "(.*)"/)[1];
 	} else {
-		core.setFailed("Could not determine project version from package.json or build.sbt");
+		throw new Error("Could not determine project version from package.json or build.sbt");
 	}
 
 	let release_version = "";
@@ -81,7 +81,7 @@ async function run() {
 
 		// make sure the tag name matches the actual project version
 		if (!release_version.startsWith(`v${project_version}-`)) {
-			core.setFailed(`Tag ${ release_version } does not match project version: v${ project_version }`);
+			throw new Error(`Tag ${ release_version } does not match project version: v${ project_version }`);
 		}
 
 		// The github checkout action does not fetch tag information when
@@ -188,4 +188,8 @@ async function run() {
 	core.saveState("release_version", release_version);
 }
 
-run();
+try {
+	run();
+} catch (error) {
+	core.setFailed((error as Error).message);
+}

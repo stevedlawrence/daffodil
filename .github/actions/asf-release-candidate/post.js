@@ -77,4 +77,9 @@ async function run() {
 	}
 }
 
-run();
+
+try {
+	run();
+} catch (error) {
+	core.setFailed((error as Error).message);
+}
