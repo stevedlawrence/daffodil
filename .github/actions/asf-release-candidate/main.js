@@ -84,10 +84,12 @@ async function run() {
 			core.setFailed(`Tag ${ release_version } does not match project version: v${ project_version }`);
 		}
 
-		// make sure the tag is signed by a committer, this command fails if the
-		// tag does not verify. Note that the github checkout action does not fetch
-		// tag information when triggered from a tag, so we must fetch it manually
+		// The github checkout action does not fetch tag information when
+		// triggered from a tag, so we fetch it manually so we can verify its tag
 		await exec("git", ["fetch", "origin", "--deepen=1", `+${ release_version }:${ release_version }`]);
+
+		// make sure the tag is signed by a committer in the KEYS file, this
+		// command fails if the tag does not verify.
 		await exec("git", ["tag", "--verify", release_version]);
 	} else {
 		// this was not triggered by a tag, maybe is was manually triggered via
