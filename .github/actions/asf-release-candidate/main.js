@@ -73,11 +73,6 @@ async function run() {
 		core.setFailed("Could not determine project version from package.json or build.sbt");
 	}
 
-	core.info("EVENT NAME: " + github.context.eventName);
-	core.info("REF: " + github.context.ref);
-	core.info("REF NAME: " + github.context.ref.slice("refs/tags/".length));
-	core.info("REPO OWNER: " + process.env.GITHUB_REPOSITORY_OWNER);
-
 	let release_version = "";
 	if (github.context.eventName == "push" && github.context.ref.startsWith("refs/tags/")) {
 		// this was triggered by the push of a tag, the tag name will be the
@@ -91,7 +86,7 @@ async function run() {
 
 		// The github checkout action does not fetch tag information when
 		// triggered from a tag, so we fetch it manually so we can verify its tag
-		await exec("git", ["fetch", "origin", "--deepen=1", `+${ release_version }:${ release_version }`]);
+		await exec("git", ["fetch", "origin", "--deepen=1", `+${ github.context.ref }:${ github.context.ref }`]);
 
 		// make sure the tag is signed by a committer in the KEYS file, this
 		// command fails if the tag does not verify.
