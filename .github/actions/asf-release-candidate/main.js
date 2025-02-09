@@ -22,12 +22,14 @@ const github = require("@actions/github");
 const { exec } = require('@actions/exec');
 
 async function run() {
-	const tlp_dir = core.getInput("tlp_dir");
-	const project_id = core.getInput("project_id");
+	const tlp_dir = core.getInput("tlp_dir", { required: true });
+	const project_id = core.getInput("project_id", { required: true });
 	const project_dir = core.getInput("project_dir");
-	const gpg_signing_key = core.getInput("gpg_signing_key");
-	const nexus_username = core.getInput("nexus_username");
-	const nexus_password = core.getInput("nexus_password");
+	const gpg_signing_key = core.getInput("gpg_signing_key", { required: true });
+	const svn_username = core.getInput("svn_username", { required: true });
+	const svn_password = core.getInput("svn_password", { required: true });
+	const nexus_username = core.getInput("nexus_username", { required: true });
+	const nexus_password = core.getInput("nexus_password", { required: true });
 	let publish = core.getBooleanInput("publish");
 
 	// import signing key into gpg and get it's key id

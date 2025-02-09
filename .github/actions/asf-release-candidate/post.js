@@ -27,9 +27,10 @@ const { exec } = require('@actions/exec');
 // The post-if condition in action.yml ensures this is only ever run if a job
 // succeeds.
 async function run() {
-	const project_name = core.getInput("project_name");
-	const svn_username = core.getInput("svn_username");
-	const svn_password = core.getInput("svn_password");
+	const project_name = core.getInput("project_name", { required: true });
+	const svn_username = core.getInput("svn_username", { required: true });
+	const svn_password = core.getInput("svn_password", { required: true });
+
 	const artifact_dir = core.getState("artifact_dir");
 	const gpg_signing_key_id = core.getState("gpg_signing_key_id");
 	const publish = core.getState("publish") === "true";
