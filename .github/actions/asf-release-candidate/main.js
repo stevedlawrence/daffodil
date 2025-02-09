@@ -74,13 +74,10 @@ async function run() {
 	}
 
 	let release_version = "";
-	core.info("Event Name: " + github.event_name);
-	core.info("Ref: " + github.ref);
-
-	if (github.event_name == "push" && github.ref.includes("refs/tags")) {
+	if (github.context.event_name == "push" && github.context.ref.startsWith("refs/tags/")) {
 		// this was triggered by the push of a tag, the tag name will be the
 		// version used
-		release_version = github.ref_name
+		release_version = github.context.ref_name
 
 		// make sure the tag name matches the actual project version
 		if (!release_version.startsWith(`v${project_version}-`)) {
@@ -109,7 +106,7 @@ async function run() {
 	// disable publishing for snapshot builds or non-ASF builds. Note that
 	// publishing could still be disabled if the publish input was explicitly set
 	// to false
-	if (publish && (is_snapshot || github.repository_owner != "apache")) {
+	if (publish && (is_snapshot || github.context.repository_owner != "apache")) {
 		core.warning("Publishing disabled for snapshot versions and from non-apache repositories");
 		publish = false;
 	}

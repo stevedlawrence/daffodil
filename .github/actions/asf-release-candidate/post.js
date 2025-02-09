@@ -18,7 +18,6 @@
 const fs = require("fs");
 const os = require("os");
 const core = require("@actions/core");
-const github = require("@actions/github");
 const { DefaultArtifactClient } = require('@actions/artifact')
 const { exec } = require('@actions/exec');
 
