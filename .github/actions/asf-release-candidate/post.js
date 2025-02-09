@@ -44,12 +44,14 @@ async function run() {
 			if (artifact.name.endsWith(".rpm")) {
 				await exec("rpmsign", ["--define", `_gpg_name ${ gpg_signing_key_id }`, "--define", "_binary_filedigest_algorithm 10", "--addsign", `${ artifact.parentPath }/${ artifact.name }`]);
 			}
+			let checksum = "";
 			await exec("sha512sum", ["--binary", artifact.name], {
 				cwd: artifact.parentPath,
 				listeners: {
-					stdout: (data) => { fs.appendFileSync(`${ artifact.name }.sha512`, data.toString()); }
+					stdout: (data) => { checksum += data.toString(); }
 				}
 			});
+			fs.appendFileSync(`${ artifact.name }.sha512`, checksum);
 			await exec("gpg", ["--default-key", gpg_signing_key_id, "--batch", "--yes", "--detach-sign", "--armor", "--output", `${ artifact.name }.asc`, artifact.name], {
 				cwd: artifact.parentPath
 			});
@@ -62,16 +64,12 @@ async function run() {
 	} else {
 		// if publishing was disabled then this action was likely just triggered
 		// just for testing, so upload the maven-local and artifact directories so
-		// they can be verified for correctness
+		// they can be verified
 		const release_candidate_dir = `${ os.tmpdir() }/release-candidate`;
-		const upload_artifacts = fs.readdirSync(release_candidate_dir, { recursive: true, withFileTypes: true }).flatMap((artifact) => {
-			const keepArtifact = artifact.isFile() && !artifact.parentPath.includes("/.svn/");
-			if (keepArtifact) {
-				return `${ artifact.parentPath }/${ artifact.name }`;
-			} else {
-				return [];
-			}
-		});
+		const upload_artifacts = fs.readdirSync(release_candidate_dir, { recursive: true, withFileTypes: true })
+			.foreach((dirent) => core.info(`${ dirent.name }: ${ dirent.parentPath }`))
+			.filter((dirent) => dirent.isFile() && !dirent.parentPath.includes("/.svn/"))
+			.map((dirent) => `${ dirent.parentPath }/${ dirent.name }`);
 		const artifact_client = new DefaultArtifactClient();
 		artifact_client.uploadArtifact(`release-candidate`, upload_artifacts, os.tmpdir(), {
 			compressionLevel: 0,
