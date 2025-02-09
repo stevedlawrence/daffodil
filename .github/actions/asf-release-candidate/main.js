@@ -191,5 +191,5 @@ async function run() {
 try {
 	run();
 } catch (error) {
-	core.setFailed((error as Error).message);
+	core.setFailed(error.message);
 }
