@@ -74,6 +74,9 @@ async function run() {
 	}
 
 	let release_version = "";
+	core.info("Event Name: " + github.event_name);
+	core.info("Ref: " + github.ref);
+
 	if (github.event_name == "push" && github.ref.includes("refs/tags")) {
 		// this was triggered by the push of a tag, the tag name will be the
 		// version used
