@@ -22,14 +22,11 @@ const github = require("@actions/github");
 const { DefaultArtifactClient } = require('@actions/artifact')
 const { exec } = require('@actions/exec');
 
+// Sign and publish all release artifacts. If publishing is disabled, we just
+// upload all the relecase candidate artifacts as GitHub workflow artifacts.
+// The post-if condition in action.yml ensures this is only ever run if a job
+// succeeds.
 async function run() {
-	// sometimes the existCode is 'undefined', even when there are no failures.
-	// Not sure how this actully happens.
-	if (process.exitCode !== undefined && process.exitCode !== core.ExitCode.Success) {
-		core.warning("Workflow failed, disabling publishing: " + process.exitCode);
-		return;
-	}
-
 	const project_name = core.getInput("project_name");
 	const svn_username = core.getInput("svn_username");
 	const svn_password = core.getInput("svn_password");
@@ -38,7 +35,7 @@ async function run() {
 	const publish = core.getState("publish") === "true";
 	const release_version = core.getState("release_version");
 
-	// sign all artifacts
+	// sign/checksum all artifacts
 	const artifacts = fs.readdirSync(artifact_dir, { recursive: true, withFileTypes: true });
 	for(const artifact of artifacts) {
 		if (artifact.isFile()) {
@@ -58,9 +55,8 @@ async function run() {
 		}
 	}
 
-	await exec("svn", ["add", artifact_dir]);
-
 	if (publish) {
+		await exec("svn", ["add", artifact_dir]);
 		await exec("svn", ["commit", "--username", svn_username, "--password", svn_password, "--message", `Stage ${ project_name } ${ release_version }`, artifact_dir]);
 	} else {
 		// if publishing was disabled then this action was likely just triggered
