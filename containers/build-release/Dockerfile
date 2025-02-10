@@ -23,7 +23,7 @@ WORKDIR /root
 # Delete any cruft in the homedir
 RUN rm -rf /root/*
 
-ENV TZ=UTF
+ENV TZ=UTC
 
 # Install/configure dependencies. Note that these are not pinned any any
 # specific version, so depending on when this Docker image is built, it could
