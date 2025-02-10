@@ -33,7 +33,7 @@ RUN rm -rf /root/*
 RUN \
   dpkg --add-architecture i386 && \
   apt-get update && \
-  apt-get install -y \
+  apt-get install -qy \
     clang \
     curl \
     git \
@@ -43,7 +43,6 @@ RUN \
     npm \
     openjdk-8-jdk-headless \
     rpm \
-    tzdata \
     unzip \
     wine32 \
     winetricks && \
@@ -55,7 +54,9 @@ RUN \
   apt-get install -y \
     sbt && \
   npm --no-update-notifier install --global yarn@1.22.19 node@16 && \
-  winetricks -q dotnet40
+  winetricks -q dotnet40 && \
+  ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
+  dpkg-reconfigure -f noninteractive tzdata
 
 # Enable sbt-pgp plugin
 COPY src/plugins.sbt /root/.sbt/1.0/plugins/
@@ -89,8 +90,6 @@ COPY src/wix_wine.sh /opt/wix/light.exe
 # to our working directory so the daffodil-build-release command is run from
 # the repo directory
 WORKDIR "/root/project"
-
-ENV TZ="Etc/UTC"
 
 # Install and set the entrypoint
 COPY src/daffodil-build-release /usr/bin/
