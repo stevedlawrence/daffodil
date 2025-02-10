@@ -23,9 +23,6 @@ WORKDIR /root
 # Delete any cruft in the homedir
 RUN rm -rf /root/*
 
-# Always run in UTC for reproducibility
-RUN timedatectl set-timezone UTC
-
 # Install/configure dependencies. Note that these are not pinned any any
 # specific version, so depending on when this Docker image is built, it could
 # result in different in changes to the build. Note that the sbt and yarn
@@ -46,6 +43,7 @@ RUN \
     npm \
     openjdk-8-jdk-headless \
     rpm \
+    tzdata \
     unzip \
     wine32 \
     winetricks && \
@@ -91,6 +89,8 @@ COPY src/wix_wine.sh /opt/wix/light.exe
 # to our working directory so the daffodil-build-release command is run from
 # the repo directory
 WORKDIR "/root/project"
+
+ENV TZ="Etc/UTC"
 
 # Install and set the entrypoint
 COPY src/daffodil-build-release /usr/bin/

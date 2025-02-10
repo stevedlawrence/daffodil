@@ -23,6 +23,8 @@ export CC=clang
 export AR=llvm-ar
 export SOURCE_DATE_EPOCH=$(git show --no-patch --format=%ct HEAD)
 
+date
+
 echo "Select a project: "
 select PROJECT in daffodil daffodil-sbt daffodil-vscode; do
   case $PROJECT in
