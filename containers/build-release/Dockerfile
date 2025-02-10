@@ -23,6 +23,8 @@ WORKDIR /root
 # Delete any cruft in the homedir
 RUN rm -rf /root/*
 
+ENV TZ=UTF
+
 # Install/configure dependencies. Note that these are not pinned any any
 # specific version, so depending on when this Docker image is built, it could
 # result in different in changes to the build. Note that the sbt and yarn
@@ -43,7 +45,6 @@ RUN \
     npm \
     openjdk-8-jdk-headless \
     rpm \
-    tzdata \
     unzip \
     wine32 \
     winetricks && \
@@ -55,12 +56,7 @@ RUN \
   apt-get install -y \
     sbt && \
   npm --no-update-notifier install --global yarn@1.22.19 node@16 && \
-  winetricks -q dotnet40 && \
-  ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
-  dpkg-reconfigure -f noninteractive tzdata
-
-# Enable sbt-pgp plugin
-COPY src/plugins.sbt /root/.sbt/1.0/plugins/
+  winetricks -q dotnet40
 
 # WIX is a Microsoft Windows Installer creation tool kit.
 #

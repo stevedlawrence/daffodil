@@ -62,7 +62,8 @@ rm -rf $RELEASE_CANDIDATE_DIR
 ARTIFACT_DIR=$RELEASE_CANDIDATE_DIR/asf-dist/$RELEASE_VERSION
 
 MAVEN_DIR=$RELEASE_CANDIDATE_DIR/maven-local
-mkdir -p ~/.sbt/1.0/
+
+mkdir -p ~/.sbt/1.0
 echo "ThisBuild / publishTo := Some(MavenCache(\"maven-local\", file(\"$MAVEN_DIR\")))" >> ~/.sbt/1.0/build.sbt
 
 echo "==== Building source artifact ===="
