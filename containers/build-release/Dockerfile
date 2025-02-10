@@ -43,6 +43,7 @@ RUN \
     npm \
     openjdk-8-jdk-headless \
     rpm \
+    tzdata \
     unzip \
     wine32 \
     winetricks && \
