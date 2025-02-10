@@ -23,6 +23,9 @@ WORKDIR /root
 # Delete any cruft in the homedir
 RUN rm -rf /root/*
 
+# Always run in UTC for reproducibility
+RUN timedatectl set-timezone UTC
+
 # Install/configure dependencies. Note that these are not pinned any any
 # specific version, so depending on when this Docker image is built, it could
 # result in different in changes to the build. Note that the sbt and yarn
@@ -76,13 +79,13 @@ RUN \
   WIXSHA=6fd961c85e1e6adafb99ef50c9659e3eb83c84ecaf49f523e556788845b206e1857aba2c39409405d4cda1df9b30a552ce5aab808be5f8368a37a447d78d1a05 && \
   curl -sS -L https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip -o wix311-binaries.zip && \
   echo "$WIXSHA wix311-binaries.zip" | sha512sum --quiet -c - && \
-  mkdir /opt/wix311 && \
-  unzip -q wix311-binaries.zip -d /opt/wix311/ && \
+  mkdir /opt/wix && \
+  unzip -q wix311-binaries.zip -d /opt/wix/ && \
   rm wix311-binaries.zip
-RUN mv /opt/wix311/candle.exe /opt/wix311/real-candle.exe
-RUN mv /opt/wix311/light.exe /opt/wix311/real-light.exe
-COPY src/wix_wine.sh /opt/wix311/candle.exe
-COPY src/wix_wine.sh /opt/wix311/light.exe
+RUN mv /opt/wix/candle.exe /opt/wix/real-candle.exe
+RUN mv /opt/wix/light.exe /opt/wix/real-light.exe
+COPY src/wix_wine.sh /opt/wix/candle.exe
+COPY src/wix_wine.sh /opt/wix/light.exe
 
 # We expect users to mount the project repo to /root/project, so we change that
 # to our working directory so the daffodil-build-release command is run from

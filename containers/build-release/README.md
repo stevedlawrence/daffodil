@@ -17,7 +17,7 @@
 
 ## Daffodil Build Release Container
 
-Daffodil release artifacts are built using a GitHub action. This container can
+Daffodil release artifacts are built using GitHub actions. This container can
 be used to build those same artifacts for testing or verifying reproducibility.
 This can be used for all Daffodil projects, including the Daffodil VS Code
 Extension and the SBT plugin.

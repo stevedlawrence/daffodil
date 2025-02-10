@@ -17,7 +17,7 @@
 
 set -e
 
-export WIX=/opt/wix311/
+export WIX=/opt/wix/
 export LANG=en_US.UTF-8
 export CC=clang
 export AR=llvm-ar
@@ -55,9 +55,12 @@ fi
 
 echo "==== Building artifacts for $PROJECT $RELEASE_VERSION ===="
 RELEASE_CANDIDATE_DIR=target/release-candidate
-ARTIFACT_DIR=$RELEASE_CANDIDATE_DIR/asf-dist/$RELEASE_VERSION
-MAVEN_DIR=$RELEASE_CANDIDATE_DIR/maven-local
 rm -rf $RELEASE_CANDIDATE_DIR
+
+ARTIFACT_DIR=$RELEASE_CANDIDATE_DIR/asf-dist/$RELEASE_VERSION
+
+MAVEN_DIR=$RELEASE_CANDIDATE_DIR/maven-local
+echo "ThisBuild / publishTo := Some(MavenCache(\"maven-local\", file(\"$MAVEN_DIR\")))" >> ~/.sbt/1.0/build.sbt
 
 echo "==== Building source artifact ===="
 mkdir -p $ARTIFACT_DIR/src/
@@ -67,17 +70,15 @@ echo "==== Building binary artifacts ===="
 
 case $PROJECT in
   "daffodil")
-    mkdir -p $MAVEN_DIR
     mkdir -p $ARTIFACT_DIR/bin
     sbt \
-      "set ThisBuild/publishTo := Some(MavenCache(\"maven-local\", file(\"$MAVEN_DIR\")))" \
-      "+compile" \
-      "+publish" \
-      "daffodil-cli/Rpm/packageBin" \
-      "daffodil-cli/Windows/packageBin" \
-      "daffodil-cli/Universal/packageBin" \
-      "daffodil-cli/Universal/packageZipTarball" \
-      "unidoc"
+      +compile \
+      +publish \
+      daffodil-cli/Rpm/packageBin \
+      daffodil-cli/Windows/packageBin \
+      daffodil-cli/Universal/packageBin \
+      daffodil-cli/Universal/packageZipTarball
+
     cp daffodil-cli/target/universal/apache-daffodil-*.tgz $ARTIFACT_DIR/bin/
     cp daffodil-cli/target/universal/apache-daffodil-*.zip $ARTIFACT_DIR/bin/
     cp daffodil-cli/target/rpm/RPMS/noarch/apache-daffodil-*.rpm $ARTIFACT_DIR/bin/
@@ -87,11 +88,9 @@ case $PROJECT in
     ;;
 
   "daffodil-sbt")
-    mkdir -p $MAVEN_DIR
     sbt \
-      "set ThisBuild/publishTo := Some(MavenCache(\"maven-local\", file(\"$MAVEN_DIR\")))" \
       "^compile" \
-      "^publish" \
+      "^publish"
     ;;
 
   "daffodil-vscode")
