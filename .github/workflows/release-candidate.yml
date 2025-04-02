@@ -42,23 +42,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: ASF Release Candidate
-        id: rc
-        uses: apache/daffodil-infrastructure/actions/release-candidate@main
-        with:
-          tlp_dir: 'daffodil'
-          project_name: 'Apache Daffodil'
-          project_id: 'daffodil'
-          gpg_signing_key: ${{ secrets.DAFFODIL_GPG_SECRET_KEY }}
-          svn_username: ${{ secrets.DAFFODIL_SVN_DEV_USERNAME }}
-          svn_password: ${{ secrets.DAFFODIL_SVN_DEV_PASSWORD }}
-          nexus_username: ${{ secrets.NEXUS_USER }}
-          nexus_password: ${{ secrets.NEXUS_PW }}
-          publish: true
-
       - name: Install Dependencies
         run: |
-          sudo apt-get install -y libmxml-dev rpm wine winetricks
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y libmxml-dev rpm wine32 winetricks
           sudo locale-gen $LANG
 
           INNO_SETUP_EXE="innosetup-6.4.1.exe"
@@ -75,6 +63,21 @@ jobs:
           distribution: temurin
           java-version: 8
           cache: sbt
+
+      - name: ASF Release Candidate
+        id: rc
+        uses: apache/daffodil-infrastructure/actions/release-candidate@main
+        with:
+          tlp_dir: 'daffodil'
+          project_name: 'Apache Daffodil'
+          project_id: 'daffodil'
+          gpg_signing_key: ${{ secrets.DAFFODIL_GPG_SECRET_KEY }}
+          svn_username: ${{ secrets.DAFFODIL_SVN_DEV_USERNAME }}
+          svn_password: ${{ secrets.DAFFODIL_SVN_DEV_PASSWORD }}
+          nexus_username: ${{ secrets.NEXUS_USER }}
+          nexus_password: ${{ secrets.NEXUS_PW }}
+          publish: true
+
 
       # Publish jars to a staging maven repository and write helper binary
       # artifacts to the artifact directory
