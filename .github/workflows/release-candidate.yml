@@ -44,7 +44,7 @@ jobs:
 
       - name: ASF Release Candidate
         id: rc
-        uses: apache/daffodil-infrastructure/actions/release-candidate@main
+        uses: stevedlawrence/daffodil-infrastructure/actions/release-candidate@daffodil-3055-getExecOutput
         with:
           tlp_dir: 'daffodil'
           project_name: 'Apache Daffodil'
